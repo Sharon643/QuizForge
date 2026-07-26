@@ -17,8 +17,9 @@ class ReviewService:
     # ==================================================
 
     def get_review(
-        self,
-        exam_id: str,
+    self,
+    exam_id: str,
+    user_id: str,
     ):
 
         db = SessionLocal()
@@ -38,10 +39,10 @@ class ReviewService:
                 )
                 .where(
                     Exam.id == exam_id,
+                    Exam.user_id == user_id,
                     Exam.status == "completed",
                 )
             )
-
             exam = db.scalar(
                 statement
             )

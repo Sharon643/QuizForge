@@ -1,4 +1,5 @@
 import random
+from fastapi import HTTPException
 
 from datetime import datetime, UTC
 
@@ -49,9 +50,10 @@ class PracticeService:
         }
 
     def _get_session(
-        self,
-        db,
-        practice_id: str,
+    self,
+    db,
+    practice_id,
+    user_id,
     ):
 
         statement = (
@@ -64,9 +66,9 @@ class PracticeService:
                 )
             )
             .where(
-                PracticeSession.id
-                == practice_id
-            )
+            PracticeSession.id == practice_id,
+            PracticeSession.user_id == user_id,
+        )
         )
 
         return db.scalar(
@@ -185,10 +187,10 @@ class PracticeService:
     # ==================================================
 
     def start_practice(
-        self,
-        question_count: int,
-        question_bank_id:
-            str | None = None,
+    self,
+    user_id: str,
+    question_count: int,
+    question_bank_id: str | None,
     ):
 
         db = SessionLocal()
@@ -201,9 +203,12 @@ class PracticeService:
 
             if question_bank_id:
 
-                bank = db.get(
-                    QuestionBank,
-                    question_bank_id,
+                bank = db.scalar(
+                    select(QuestionBank)
+                    .where(
+                        QuestionBank.id == question_bank_id,
+                        QuestionBank.user_id == user_id,
+                    )
                 )
 
             else:
@@ -213,8 +218,8 @@ class PracticeService:
                         QuestionBank
                     )
                     .where(
-                        QuestionBank.active
-                        .is_(True)
+                        QuestionBank.user_id == user_id,
+                        QuestionBank.active.is_(True),
                     )
                     .limit(1)
                 )
@@ -266,6 +271,8 @@ class PracticeService:
             # ------------------------------------------
 
             session = PracticeSession(
+                user_id=user_id,
+                
                 question_bank_id=bank.id,
 
                 question_count=len(selected),
@@ -344,6 +351,7 @@ class PracticeService:
     def get_practice(
         self,
         practice_id: str,
+        user_id
     ):
 
         db = SessionLocal()
@@ -354,11 +362,15 @@ class PracticeService:
                 self._get_session(
                     db,
                     practice_id,
+                    user_id,
                 )
             )
 
             if session is None:
-                return None
+                raise HTTPException(
+                    status_code=404,
+                    detail="Practice session not found.",
+                )
 
             return (
                 self._serialize_session(
@@ -376,23 +388,30 @@ class PracticeService:
     # ==================================================
 
     def submit_answer(
-        self,
-        practice_id: str,
-        question_id: str,
-        selected_option: str,
+    self,
+    practice_id: str,
+    user_id: str,
+    question_id: str,
+    selected_option: str,
     ):
 
         db = SessionLocal()
 
         try:
 
-            session = db.get(
-                PracticeSession,
-                practice_id,
+            session = db.scalar(
+                select(PracticeSession)
+                .where(
+                    PracticeSession.id == practice_id,
+                    PracticeSession.user_id == user_id,
+                )
             )
 
             if session is None:
-                return None
+                raise HTTPException(
+                    status_code=404,
+                    detail="Practice session not found.",
+                )
 
             if session.status == "completed":
 
@@ -477,6 +496,7 @@ class PracticeService:
     def finish_practice(
         self,
         practice_id: str,
+        user_id
     ):
 
         db = SessionLocal()
@@ -487,11 +507,15 @@ class PracticeService:
                 self._get_session(
                     db,
                     practice_id,
+                    user_id,
                 )
             )
 
             if session is None:
-                return None
+                raise HTTPException(
+                    status_code=404,
+                    detail="Practice session not found.",
+                )
 
             correct = 0
             wrong = 0

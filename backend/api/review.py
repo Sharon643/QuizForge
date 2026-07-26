@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException,Depends
+from auth.dependencies import get_current_user
 
 from services.review_service import ReviewService
 
@@ -13,9 +14,15 @@ service = ReviewService()
     "/review/{exam_id}",
     response_model=ReviewResponse,
 )
-def get_review(exam_id: str):
+def get_review(
+    exam_id: str,
+    current_user=Depends(get_current_user),
+):
 
-    review = service.get_review(exam_id)
+    review = service.get_review(
+    exam_id,
+    current_user["id"],
+    )
 
     if review is None:
 
