@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState,
   type FormEvent,
 } from "react";
@@ -9,9 +10,15 @@ import {
 } from "react-router-dom";
 
 import { signIn } from "../services/authService";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
+
+  const {
+    user,
+    loading: authLoading,
+  } = useAuth();
 
   const [email, setEmail] =
     useState("");
@@ -24,6 +31,22 @@ export default function Login() {
 
   const [error, setError] =
     useState("");
+
+  // --------------------------------------------------
+  // Redirect after authentication
+  // --------------------------------------------------
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate("/dashboard", {
+        replace: true,
+      });
+    }
+  }, [user, authLoading, navigate]);
+
+  // --------------------------------------------------
+  // Login
+  // --------------------------------------------------
 
   async function handleSubmit(
     event: FormEvent
@@ -39,7 +62,7 @@ export default function Login() {
         password
       );
 
-      navigate("/dashboard");
+      // Navigation happens in useEffect
     } catch (error: any) {
       setError(
         error.message ??

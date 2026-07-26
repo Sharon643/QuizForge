@@ -117,6 +117,7 @@ def get_current_user(
             ],
             issuer=JWT_ISSUER,
             audience="authenticated",
+            leeway=30,   # allow 30 seconds of clock skew
             options={
                 "require": [
                     "exp",
