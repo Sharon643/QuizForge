@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import type {
   QuestionBank,
@@ -32,6 +33,9 @@ export default function QuestionBank() {
 
   const [search, setSearch] = useState("");
 
+  const [filter, setFilter] = useState<
+  "all" | "official" | "ai" | "missing" >("all");
+
   const [loading, setLoading] = useState(true);
 
   const [loadingQuestions, setLoadingQuestions] =
@@ -39,9 +43,31 @@ export default function QuestionBank() {
 
   const [error, setError] = useState("");
 
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
     loadBanks();
   }, []);
+  useEffect(() => {
+
+  const urlFilter =
+    searchParams.get("filter");
+
+  if (
+    urlFilter === "official" ||
+    urlFilter === "ai" ||
+    urlFilter === "missing"
+  ) {
+
+    setFilter(urlFilter);
+
+  } else {
+
+    setFilter("all");
+
+  }
+
+}, [searchParams]);
 
   async function loadBanks() {
     try {
@@ -124,25 +150,68 @@ export default function QuestionBank() {
 
     await loadBanks();
   }
+  const counts = useMemo(() => ({
+
+    all: questions.length,
+
+    official: questions.filter(
+      q => q.answer_source === "official"
+    ).length,
+
+    ai: questions.filter(
+      q => q.answer_source === "ai"
+    ).length,
+
+    missing: questions.filter(
+      q => !q.correct_answer
+    ).length,
+
+  }), [questions]);
 
   const filteredQuestions = useMemo(() => {
-    if (!search.trim()) {
-      return questions;
+
+    let filtered = [...questions];
+
+    switch (filter) {
+
+      case "official":
+        filtered = filtered.filter(
+          q => q.answer_source === "official"
+        );
+        break;
+
+      case "ai":
+        filtered = filtered.filter(
+          q => q.answer_source === "ai"
+        );
+        break;
+
+      case "missing":
+        filtered = filtered.filter(
+          q => !q.correct_answer
+        );
+        break;
+
     }
 
-    const query =
-      search.toLowerCase();
+    if (!search.trim()) {
+      return filtered;
+    }
 
-    return questions.filter(
-      (question) =>
+    const query = search.toLowerCase();
+
+    return filtered.filter(
+      question =>
         question.question
           .toLowerCase()
           .includes(query) ||
+
         question.subject
           ?.toLowerCase()
           .includes(query)
     );
-  }, [questions, search]);
+
+  }, [questions, search, filter]);
 
   const currentIndex =
     selectedQuestion
@@ -302,10 +371,54 @@ export default function QuestionBank() {
 
               <div className="mt-8">
 
-                <QuestionSearch
-                  value={search}
-                  onChange={setSearch}
-                />
+                <div className="space-y-5">
+
+                  <div className="flex flex-wrap gap-3">
+
+                    <button
+                      onClick={() => setFilter("all")}
+                      className={filter === "all"
+                        ? "rounded-full bg-blue-600 px-4 py-2 text-white"
+                        : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"}
+                    >
+                      All ({counts.all})
+                    </button>
+
+                    <button
+                      onClick={() => setFilter("official")}
+                      className={filter === "official"
+                        ? "rounded-full bg-blue-600 px-4 py-2 text-white"
+                        : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"}
+                    >
+                      Official ({counts.official})
+                    </button>
+
+                    <button
+                      onClick={() => setFilter("ai")}
+                      className={filter === "ai"
+                        ? "rounded-full bg-blue-600 px-4 py-2 text-white"
+                        : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"}
+                    >
+                      AI ({counts.ai})
+                    </button>
+
+                    <button
+                      onClick={() => setFilter("missing")}
+                      className={filter === "missing"
+                        ? "rounded-full bg-blue-600 px-4 py-2 text-white"
+                        : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"}
+                    >
+                      Missing ({counts.missing})
+                    </button>
+
+                  </div>
+
+                  <QuestionSearch
+                    value={search}
+                    onChange={setSearch}
+                  />
+
+                </div>
 
               </div>
 

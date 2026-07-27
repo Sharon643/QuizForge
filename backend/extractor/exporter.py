@@ -214,50 +214,50 @@ class Exporter:
             else 0
         )
 
-        print("\n" + "=" * 60)
-        print("PDF EXTRACTION SUMMARY")
-        print("=" * 60)
+        # print("\n" + "=" * 60)
+        # print("PDF EXTRACTION SUMMARY")
+        # print("=" * 60)
 
-        print(
-            f"Total Questions   : {total_questions}"
-        )
+        # print(
+        #     f"Total Questions   : {total_questions}"
+        # )
 
-        print(
-            f"Valid Questions   : {valid_questions}"
-        )
+        # print(
+        #     f"Valid Questions   : {valid_questions}"
+        # )
 
-        print(
-            f"Invalid Questions : {invalid_questions}"
-        )
+        # print(
+        #     f"Invalid Questions : {invalid_questions}"
+        # )
 
-        print(
-            f"Validation Errors : {error_count}"
-        )
+        # print(
+        #     f"Validation Errors : {error_count}"
+        # )
 
-        print(
-            f"Validation Rate   : {validation_rate:.2f}%"
-        )
+        # print(
+        #     f"Validation Rate   : {validation_rate:.2f}%"
+        # )
 
-        print()
+        # print()
 
-        print(
-            f"Questions JSON    : {output_file}"
-        )
+        # print(
+        #     f"Questions JSON    : {output_file}"
+        # )
 
-        print(
-            "Invalid Questions : "
-            + os.path.join(
-                os.path.dirname(output_file),
-                "invalid_questions.json",
-            )
-        )
+        # print(
+        #     "Invalid Questions : "
+        #     + os.path.join(
+        #         os.path.dirname(output_file),
+        #         "invalid_questions.json",
+        #     )
+        # )
 
-        print(
-            "Validation Report : "
-            + os.path.join(
-                os.path.dirname(output_file),
-                "validation_report.txt",
-            )
-        )
+        # print(
+        #     "Validation Report : "
+        #     + os.path.join(
+        #         os.path.dirname(output_file),
+        #         "validation_report.txt",
+        #     )
+        # )
 
-        print("=" * 60)
+        # print("=" * 60)

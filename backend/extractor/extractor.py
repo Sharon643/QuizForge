@@ -56,14 +56,14 @@ class Extractor:
 
         if existing:
 
-            print("Using existing PDF chunks.")
+            # print("Using existing PDF chunks.")
 
             return [
                 os.path.join(chunk_dir, f)
                 for f in existing
             ]
 
-        print("\n========== SPLITTING PDF ==========\n")
+        # print("\n========== SPLITTING PDF ==========\n")
 
         return self.splitter.split(
             pdf_path,
@@ -77,7 +77,7 @@ class Extractor:
         progress=None,
     ):
 
-        print("\n========== EXTRACTING ==========\n")
+        # print("\n========== EXTRACTING ==========\n")
 
         os.makedirs(
             chunk_json_dir,
@@ -102,9 +102,9 @@ class Extractor:
                     message=f"Extracting chunk {index}/{total}",
                 )
 
-            print(
-                f"\n========== Chunk {index}/{total} =========="
-            )
+            # print(
+            #     f"\n========== Chunk {index}/{total} =========="
+            # )
 
             if Checkpoint.completed(
                 chunk,
@@ -135,7 +135,7 @@ class Extractor:
         output_json,
     ):
 
-        print("\n========== MERGING ==========\n")
+        # print("\n========== MERGING ==========\n")
 
         os.makedirs(
             os.path.dirname(output_json),
@@ -193,13 +193,5 @@ class Extractor:
             chunk_json_dir,
             output_json,
         )
-
-        if progress:
-            progress.update(
-                stage="completed",
-                percent=100,
-                message="Extraction completed!",
-                completed=True,
-            )
 
         return output_json

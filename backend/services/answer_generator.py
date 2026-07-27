@@ -153,6 +153,9 @@ class AnswerGenerator:
         )
 
         return {
+
+            "processed": updated + remaining,
+            
             "updated": updated,
 
             "remaining": remaining,

@@ -220,7 +220,6 @@ class ExtractionService:
             # ----------------------------------------------
             # Complete
             # ----------------------------------------------
-
             progress.update(
                 stage="completed",
                 percent=100,

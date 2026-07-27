@@ -14,12 +14,30 @@ export interface QuestionBank {
 }
 
 export interface QuestionSummary {
-  id: number;
+  id: string;
+
   number: number;
-  page: number;
-  subject: string;
+
+  page: number | null;
+
+  subject: string | null;
+
   question: string;
-  options: string[];
+
+  options: {
+    A: string | null;
+    B: string | null;
+    C: string | null;
+    D: string | null;
+  };
+
+  correct_answer: string | null;
+
+  answer_source: "official" | "ai" | "none" | null;
+
+  confidence: number | null;
+
+  explanation: string | null;
 }
 
 export interface QuestionBankListResponse {

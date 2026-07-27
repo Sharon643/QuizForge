@@ -22,6 +22,7 @@ type GenerationState =
     | "completed";
 
 interface GenerationResult {
+    processed: number;
     updated: number;
     remaining: number;
     average_confidence: number;
@@ -129,7 +130,9 @@ export default function ExtractionSuccess({
 
             </div>
 
-            {state === "idle" && (
+        {state === "idle" && (
+
+            missingAnswers > 0 ? (
 
                 <>
 
@@ -145,22 +148,19 @@ export default function ExtractionSuccess({
                             <div>
 
                                 <h3 className="font-semibold text-amber-300">
-
                                     AI Answer Generation
-
                                 </h3>
 
                                 <p className="mt-2 text-sm leading-6 text-zinc-300">
 
-                                    AI can generate answers for the{" "}
+                                    AI can generate answers for{" "}
                                     <strong>{missingAnswers}</strong>{" "}
                                     unanswered questions.
 
                                     <br /><br />
 
-                                    These answers may not always be
-                                    correct and should be verified
-                                    before studying.
+                                    These answers are AI-generated and
+                                    should be verified before studying.
 
                                 </p>
 
@@ -173,9 +173,7 @@ export default function ExtractionSuccess({
                     {error && (
 
                         <div className="mt-5 rounded-lg border border-red-800 bg-red-950/30 p-4 text-red-300">
-
                             {error}
-
                         </div>
 
                     )}
@@ -201,61 +199,117 @@ export default function ExtractionSuccess({
 
                 </>
 
-            )}
+            ) : (
 
-            {state === "generating" && (
+                <>
 
-                <div className="mt-10 text-center">
+                    <div className="mt-8 rounded-xl border border-emerald-700 bg-emerald-950/20 p-5 text-center">
 
-                    <Loader2
-                        size={42}
-                        className="mx-auto animate-spin text-blue-400"
-                    />
+                        <CheckCircle2
+                            className="mx-auto mb-3 text-emerald-400"
+                            size={32}
+                        />
 
-                    <h3 className="mt-6 text-xl font-semibold text-white">
+                        <h3 className="text-lg font-semibold text-emerald-300">
+                            All Answers Available
+                        </h3>
 
-                        Generating AI Answers...
+                        <p className="mt-2 text-sm text-zinc-300">
+                            Every question already has an official answer.
+                            Your question bank is ready to use.
+                        </p>
 
-                    </h3>
+                    </div>
 
-                    <p className="mt-3 text-zinc-400">
+                    <div className="mt-8 flex justify-center">
 
-                        This may take a minute depending
-                        on the number of unanswered
-                        questions.
+                        <Button
+                            onClick={() =>
+                                navigate("/question-bank")
+                            }
+                        >
+                            Proceed to Question Bank
+                        </Button>
 
-                    </p>
+                    </div>
 
-                </div>
+                </>
 
-            )}
+            )
+
+        )}
+
+        {state === "generating" && (
+
+            <div className="mt-10 text-center">
+
+                <Loader2
+                    size={48}
+                    className="mx-auto animate-spin text-blue-400"
+                />
+
+                <h3 className="mt-6 text-2xl font-semibold text-white">
+
+                    Generating AI Answers...
+
+                </h3>
+
+                <p className="mt-4 max-w-lg mx-auto leading-7 text-zinc-400">
+
+                    The AI is analyzing every unanswered
+                    question individually.
+
+                    <br /><br />
+
+                    Questions containing diagrams,
+                    tables or incomplete information
+                    may remain unanswered to maintain
+                    accuracy.
+
+                </p>
+
+            </div>
+
+        )}
 
             {state === "completed" && result && (
 
-                <div className="mt-10 text-center">
+                <div className="mt-10">
 
-                    <CheckCircle2
-                        size={54}
-                        className="mx-auto text-emerald-400"
-                    />
+                    <div className="text-center">
 
-                    <h3 className="mt-6 text-2xl font-bold text-white">
+                        <CheckCircle2
+                            size={54}
+                            className="mx-auto text-emerald-400"
+                        />
 
-                        AI Answers Generated
+                        <h3 className="mt-6 text-2xl font-bold text-white">
+                            AI Answer Generation Complete
+                        </h3>
 
-                    </h3>
+                        <p className="mt-2 text-zinc-400">
+                            Your question bank has been updated with
+                            AI-generated answers where possible.
+                        </p>
 
-                    <div className="mx-auto mt-8 max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-6">
+                    </div>
+
+                    <div className="mx-auto mt-8 max-w-lg rounded-xl border border-zinc-800 bg-zinc-950 p-6">
 
                         <div className="space-y-4">
 
                             <ResultRow
-                                label="Answers Generated"
+                                label="Questions Analyzed"
+                                value={result.processed}
+                            />
+
+                            <ResultRow
+                                label="AI Answers Generated"
                                 value={result.updated}
                             />
 
                             <ResultRow
-                                label="Remaining"
+                                label="Could Not Be Answered"
                                 value={result.remaining}
                             />
 
@@ -270,7 +324,48 @@ export default function ExtractionSuccess({
 
                     </div>
 
+                    {result.remaining > 0 && (
+
+                        <div className="mx-auto mt-8 max-w-lg rounded-xl border border-amber-700 bg-amber-950/20 p-6">
+
+                            <h4 className="font-semibold text-amber-300">
+
+                                Why are some questions still unanswered?
+
+                            </h4>
+
+                            <p className="mt-3 text-sm leading-6 text-zinc-300">
+
+                                Some questions rely on diagrams,
+                                figures, tables or incomplete text
+                                extracted from the PDF.
+
+                                <br /><br />
+
+                                Rather than guessing, the AI leaves
+                                those questions unanswered so you can
+                                review them manually.
+
+                            </p>
+
+                        </div>
+
+                    )}
+
                     <div className="mt-8 flex justify-center gap-4">
+
+                        {result.remaining > 0 && (
+
+                            <Button
+                                variant="secondary"
+                                onClick={() =>
+                                    navigate("/question-bank?filter=missing")
+                                }
+                            >
+                                Review Unanswered
+                            </Button>
+
+                        )}
 
                         <Button
                             onClick={() =>
