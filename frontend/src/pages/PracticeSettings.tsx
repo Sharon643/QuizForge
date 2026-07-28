@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import PracticeSettingsSkeleton from "../components/practice/PracticeSettingsSkeleton";
 
 import { startPractice } from "../services/practiceService";
 
@@ -81,11 +82,7 @@ export default function PracticeSettings() {
   }
 
   if (loadingBanks) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-700 border-t-blue-500" />
-      </main>
-    );
+      return <PracticeSettingsSkeleton />;
   }
 
   if (banks.length === 0) {

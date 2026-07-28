@@ -15,6 +15,7 @@ from database.models import Question, QuestionBank
 
 from utils.question_bank import QuestionBankManager
 from services.answer_generator import AnswerGenerator
+from schemas.question import UpdateAnswerRequest
 
 
 router = APIRouter()
@@ -497,4 +498,62 @@ def generate_answers(
 
     finally:
 
+        db.close()
+
+@router.patch("/questions/{question_id}/answer")
+def update_answer(
+    question_id: str,
+    payload: UpdateAnswerRequest,
+    current_user=Depends(get_current_user),
+):
+    db = SessionLocal()
+
+    try:
+
+        question = db.get(
+            Question,
+            question_id,
+        )
+
+        if question is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Question not found.",
+            )
+
+        bank = db.get(
+            QuestionBank,
+            question.question_bank_id,
+        )
+
+        if (
+            bank is None
+            or bank.user_id != current_user["id"]
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied.",
+            )
+
+        question.correct_answer = (
+            payload.correct_answer
+        )
+
+        question.explanation = (
+            payload.explanation
+        )
+
+        question.answer_source = "manual"
+
+        question.answer_confidence = 1.0
+
+        db.commit()
+        db.refresh(question)
+
+        return {
+            "success": True,
+            "question": serialize_question(question),
+        }
+
+    finally:
         db.close()

@@ -17,6 +17,9 @@ interface QuestionDetailsModalProps {
   onPrevious?: () => void;
   onNext?: () => void;
   onClose: () => void;
+  onEditAnswer?: (
+    question: QuestionSummary
+  ) => void;
 }
 
 export default function QuestionDetailsModal({
@@ -27,6 +30,7 @@ export default function QuestionDetailsModal({
   onPrevious,
   onNext,
   onClose,
+  onEditAnswer,
 }: QuestionDetailsModalProps) {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -77,8 +81,7 @@ export default function QuestionDetailsModal({
   const answered =
     !!question.correct_answer;
 
-  const isAI =
-    question.answer_source === "ai";
+  const source = question.answer_source;
 
   return (
     <div
@@ -216,27 +219,28 @@ export default function QuestionDetailsModal({
 
                     <div className="flex items-center gap-2">
 
-                      {isAI ? (
-                        <>
-
-                          <span className="font-medium text-blue-400">
-                            AI Generated
-                          </span>
-                        </>
-                      ) : (
-                        <>
-
+                      {source === "official" && (
                           <span className="font-medium text-emerald-400">
-                            Official Answer
+                              📘 Official Answer
                           </span>
-                        </>
+                      )}
+
+                      {source === "ai" && (
+                          <span className="font-medium text-blue-400">
+                              🤖 AI Generated
+                          </span>
+                      )}
+
+                      {source === "manual" && (
+                          <span className="font-medium text-yellow-400">
+                              ✏️ Manually Edited
+                          </span>
                       )}
 
                     </div>
 
-                    {isAI &&
-                      question.confidence !=
-                        null && (
+                    {source === "ai" &&
+                  question.confidence != null && (
                         <p className="mt-2 text-sm text-zinc-400">
                           Confidence:{" "}
                           {(
@@ -303,6 +307,28 @@ export default function QuestionDetailsModal({
               </div>
 
             )}
+
+            <div className="mt-6 flex justify-end">
+
+              <button
+                  onClick={() =>
+                      onEditAnswer?.(question)
+                  }
+                  className="
+                      rounded-lg
+                      bg-blue-600
+                      px-5
+                      py-2
+                      text-white
+                      hover:bg-blue-500
+                  "
+              >
+                  {answered
+                      ? "Edit Answer"
+                      : "Add Answer"}
+              </button>
+
+          </div>
 
           </section>
 

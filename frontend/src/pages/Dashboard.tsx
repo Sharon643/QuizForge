@@ -16,6 +16,7 @@ import QuickActionCard from "../components/dashboard/QuickActionCard";
 import StatCard from "../components/dashboard/StatCard";
 import UserMenu from "../components/UserMenu";
 import DashboardSkeleton from "../components/dashboard/DashboardSkeleton";
+import ContinuePracticeDialog from "../components/dashboard/ContinuePracticeDialog";
 
 import type { QuestionBank } from "../types/questionBank";
 
@@ -24,6 +25,7 @@ import { getCurrentExam } from "../services/examService";
 import { getHistory } from "../services/historyService";
 
 import { useAuth } from "../context/AuthContext";
+import {getCurrentPractice,} from "../services/practiceService";
 
 
 export default function Dashboard() {
@@ -39,6 +41,12 @@ export default function Dashboard() {
 
   const [currentExam, setCurrentExam] =
     useState<any>(null);
+
+  const [currentPractice,setCurrentPractice,] = 
+    useState<any>(null);
+
+  const [showPracticeDialog,setShowPracticeDialog,] = 
+    useState(false);
 
   const [loading, setLoading] =
     useState(true);
@@ -89,6 +97,26 @@ export default function Dashboard() {
           setCurrentExam(
             null
           );
+        }
+
+        const practiceResponse =
+            await getCurrentPractice();
+
+        if (
+            practiceResponse.exists
+        ) {
+
+            setCurrentPractice(
+                practiceResponse.practice
+            );
+
+        }
+        else {
+
+            setCurrentPractice(
+                null
+            );
+
         }
 
 
@@ -466,11 +494,21 @@ export default function Dashboard() {
 
             <QuickActionCard
 
-              title="Practice"
+              title={
+                  currentPractice
+                      ? "Continue Practice"
+                      : "Practice"
+              }
 
-              description="
-                Practice with instant feedback.
-              "
+              description={
+                  currentPractice
+
+                      ? `Resume ${Object.keys(
+                          currentPractice.answers ?? {}
+                        ).length} / ${currentPractice.questionCount} questions`
+
+                      : "Practice with instant feedback."
+              }
 
               icon={
                 <Brain
@@ -479,11 +517,19 @@ export default function Dashboard() {
                 />
               }
 
-              onClick={() =>
-                navigate(
-                  "/practice/settings"
-                )
-              }
+              onClick={() => {
+
+                  if (currentPractice) {
+
+                      setShowPracticeDialog(true);
+
+                  } else {
+
+                      navigate("/practice/settings");
+
+                  }
+
+              }}
 
             />
 
@@ -516,6 +562,33 @@ export default function Dashboard() {
         </section>
 
       </div>
+      <ContinuePracticeDialog
+
+          open={showPracticeDialog}
+
+          practice={currentPractice}
+
+          onClose={() =>
+              setShowPracticeDialog(false)
+          }
+
+          onContinue={() => {
+
+              navigate(
+                  `/practice/${currentPractice.practiceId}`
+              );
+
+          }}
+
+          onStartNew={() => {
+
+              navigate(
+                  "/practice/settings"
+              );
+
+          }}
+
+      />
 
     </main>
   );

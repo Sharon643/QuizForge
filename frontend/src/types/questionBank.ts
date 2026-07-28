@@ -33,7 +33,7 @@ export interface QuestionSummary {
 
   correct_answer: string | null;
 
-  answer_source: "official" | "ai" | "none" | null;
+  answer_source: "official" | "ai" | "manual" | "none" | null;
 
   confidence: number | null;
 

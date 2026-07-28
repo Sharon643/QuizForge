@@ -65,3 +65,19 @@ export async function generateAnswers(
 
     return response.data;
 }
+
+export async function updateAnswer(
+  questionId: string,
+  correctAnswer: string,
+  explanation: string
+) {
+  const response = await api.patch(
+    `/questions/${questionId}/answer`,
+    {
+      correct_answer: correctAnswer,
+      explanation,
+    }
+  );
+
+  return response.data.question;
+}

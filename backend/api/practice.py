@@ -23,6 +23,15 @@ def start_practice(
     request.questionBankId,
     )
 
+@router.get("/current")
+def get_current_practice(
+    current_user=Depends(get_current_user),
+):
+
+    return service.get_current_practice(
+        current_user["id"]
+    )
+
 @router.get("/{practice_id}")
 def get_practice(
     practice_id: str,
@@ -63,3 +72,4 @@ def finish_practice(
     practice_id,
     current_user["id"],
 )
+

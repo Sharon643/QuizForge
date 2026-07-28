@@ -20,6 +20,7 @@ import QuestionSearch from "../components/question-bank/QuestionSearch";
 import QuestionCard from "../components/question-bank/QuestionCard";
 import QuestionBankSkeleton from "../components/question-bank/QuestionBankSkeleton";
 import QuestionDetailsModal from "../components/question-bank/QuestionDetailsModal";
+import EditAnswerDialog from "../components/question-bank/EditAnswerDialog";
 
 export default function QuestionBank() {
   const [banks, setBanks] = useState<QuestionBank[]>([]);
@@ -31,10 +32,14 @@ export default function QuestionBank() {
   const [selectedQuestion, setSelectedQuestion] =
     useState<QuestionSummary | null>(null);
 
+  const [editingQuestion, setEditingQuestion] =
+    useState<QuestionSummary | null>(null);
+
   const [search, setSearch] = useState("");
 
   const [filter, setFilter] = useState<
-  "all" | "official" | "ai" | "missing" >("all");
+  "all" | "official" | "ai" | "manual" | "missing"
+  >("all");
 
   const [loading, setLoading] = useState(true);
 
@@ -56,6 +61,7 @@ export default function QuestionBank() {
   if (
     urlFilter === "official" ||
     urlFilter === "ai" ||
+    urlFilter === "manual" ||
     urlFilter === "missing"
   ) {
 
@@ -162,6 +168,10 @@ export default function QuestionBank() {
       q => q.answer_source === "ai"
     ).length,
 
+    manual: questions.filter(
+      q => q.answer_source === "manual"
+    ).length,
+
     missing: questions.filter(
       q => !q.correct_answer
     ).length,
@@ -183,6 +193,12 @@ export default function QuestionBank() {
       case "ai":
         filtered = filtered.filter(
           q => q.answer_source === "ai"
+        );
+        break;
+
+      case "manual":
+        filtered = filtered.filter(
+            q => q.answer_source === "manual"
         );
         break;
 
@@ -248,6 +264,22 @@ export default function QuestionBank() {
       );
     }
   }
+
+  function handleQuestionUpdated(
+  updatedQuestion: QuestionSummary
+) {
+
+  setQuestions(prev =>
+    prev.map(question =>
+      question.id === updatedQuestion.id
+        ? updatedQuestion
+        : question
+    )
+  );
+
+  setSelectedQuestion(updatedQuestion);
+
+}
 
   if (loading) {
     return <QuestionBankSkeleton />;
@@ -403,6 +435,17 @@ export default function QuestionBank() {
                     </button>
 
                     <button
+                        onClick={() => setFilter("manual")}
+                        className={
+                            filter === "manual"
+                                ? "rounded-full bg-blue-600 px-4 py-2 text-white"
+                                : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"
+                        }
+                    >
+                        User Edit ({counts.manual})
+                    </button>
+
+                    <button
                       onClick={() => setFilter("missing")}
                       className={filter === "missing"
                         ? "rounded-full bg-blue-600 px-4 py-2 text-white"
@@ -459,7 +502,7 @@ export default function QuestionBank() {
         </div>
       </main>
 
-      <QuestionDetailsModal
+    <QuestionDetailsModal
         open={selectedQuestion !== null}
         question={selectedQuestion}
         hasPrevious={hasPrevious}
@@ -467,7 +510,15 @@ export default function QuestionBank() {
         onPrevious={handlePrevious}
         onNext={handleNext}
         onClose={() => setSelectedQuestion(null)}
-      />
+        onEditAnswer={setEditingQuestion}
+    />
+
+    <EditAnswerDialog
+    open={editingQuestion !== null}
+    question={editingQuestion}
+    onClose={() => setEditingQuestion(null)}
+    onSaved={handleQuestionUpdated}
+    />
     </>
   );
 }

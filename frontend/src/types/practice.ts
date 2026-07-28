@@ -13,7 +13,13 @@ export interface PracticeQuestion {
 }
 
 export interface PracticeAnswer {
-  selectedOption: string;
+    selectedOption: string | null;
+
+    isCorrect: boolean | null;
+
+    correctAnswer: string | null;
+
+    explanation: string;
 }
 
 export interface PracticeSession {

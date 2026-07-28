@@ -57,3 +57,12 @@ export async function finishPractice(
 
   return response.data;
 }
+
+export async function getCurrentPractice() {
+
+    const response =
+        await api.get("/practice/current");
+
+    return response.data;
+
+}

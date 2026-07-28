@@ -15,6 +15,8 @@ import {
 import ExamHeader from "../components/exam/ExamHeader";
 import QuestionPanel from "../components/exam/QuestionPanel";
 import QuestionNavigator from "../components/exam/QuestionNavigator";
+import PracticeSkeleton from "../components/practice/PracticeSkeleton";
+
 
 export default function Practice() {
   const { practiceId } = useParams();
@@ -96,31 +98,57 @@ export default function Practice() {
 
         const restoredVisited =
           new Set<number>([1]);
-
-        session.questions.forEach(
+          
+        const restoredResults: Record<
+            string,
+            boolean
+        > = {};
+      session.questions.forEach(
           (question, index) => {
-            const answer =
-              session.answers?.[
-                question.id
-              ];
 
-            if (!answer) return;
+              const answer =
+                  session.answers?.[
+                      question.id
+                  ];
 
-            if (answer.selectedOption) {
-              restoredAnswers[
-                question.id
-              ] =
-                answer.selectedOption;
+              if (!answer) return;
 
-              restoredVisited.add(
-                index + 1
-              );
-            }
+              if (answer.selectedOption) {
+
+                  restoredAnswers[
+                      question.id
+                  ] =
+                      answer.selectedOption;
+
+                  restoredVisited.add(
+                      index + 1
+                  );
+
+              }
+
+              if (
+                  answer.isCorrect !==
+                  null &&
+                  answer.isCorrect !==
+                  undefined
+              ) {
+
+                  restoredResults[
+                      question.id
+                  ] =
+                      answer.isCorrect;
+
+              }
+
           }
-        );
+      );
 
         setAnswers(
           restoredAnswers
+        );
+
+        setResults(
+            restoredResults
         );
 
         setVisitedQuestions(
@@ -397,13 +425,7 @@ export default function Practice() {
   // ---------- Loading ----------
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950">
-        <p className="text-zinc-400">
-          Loading Practice...
-        </p>
-      </main>
-    );
+    return <PracticeSkeleton />;
   }
 
   // ---------- Error ----------

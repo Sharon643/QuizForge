@@ -145,11 +145,19 @@ class PracticeService:
                 is not None
             ):
 
-                answers[
-                    answer.question_id
-                ] = {
-                    "selectedOption":
-                        answer.selected_option
+                answers[answer.question_id] = {
+                    "selectedOption": answer.selected_option,
+                    "isCorrect": answer.is_correct,
+                    "correctAnswer": (
+                        question.correct_answer
+                        if question
+                        else None
+                    ),
+                    "explanation": (
+                        question.explanation
+                        if question
+                        else ""
+                    ),
                 }
 
         bank = db.get(
@@ -587,6 +595,55 @@ class PracticeService:
             db.rollback()
 
             raise
+
+        finally:
+
+            db.close()
+
+    def get_current_practice(
+    self,
+    user_id: str,
+):
+
+        db = SessionLocal()
+
+        try:
+
+            session = db.scalar(
+                select(PracticeSession)
+                .where(
+                    PracticeSession.user_id == user_id,
+                    PracticeSession.status == "in_progress",
+                )
+                .order_by(
+                    PracticeSession.started_at.desc()
+                )
+            )
+
+            if session is None:
+
+                return {
+                    "exists": False,
+                }
+
+            serialized = self._serialize_session(
+                db,
+                session,
+            )
+
+            answered = sum(
+                1
+                for answer in session.answers
+                if answer.selected_option is not None
+            )
+
+            return {
+                "exists": True,
+                "practice": {
+                    **serialized,
+                    "answered": answered,
+                },
+            }
 
         finally:
 
