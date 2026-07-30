@@ -7,6 +7,7 @@ import ReviewFilter from "../components/review/ReviewFilter";
 import ReviewNavigator from "../components/review/ReviewNavigator";
 import ReviewQuestion from "../components/review/ReviewQuestion";
 import ReviewControls from "../components/review/ReviewControls";
+import ReviewSkeleton from "../components/review/ReviewSkeleton";
 
 import { getReview } from "../services/reviewService";
 
@@ -173,17 +174,7 @@ export default function Review() {
   }, [filteredQuestions]);
 
   if (loading) {
-
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950">
-
-        <p className="text-zinc-400">
-          Loading review...
-        </p>
-
-      </main>
-    );
-
+      return <ReviewSkeleton />;
   }
 
   if (

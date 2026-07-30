@@ -6,3 +6,5 @@ pillow
 easyocr
 rapidfuzz
 google-genai
+slowapi 
+limits
