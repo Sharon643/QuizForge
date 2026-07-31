@@ -9,7 +9,10 @@ from fastapi import (
     File,
     HTTPException,
     UploadFile,
+    Request,
 )
+
+from core.security.rate_limit import limiter
 
 from auth.dependencies import (
     get_current_user,
@@ -37,38 +40,84 @@ UPLOAD_FOLDER.mkdir(
     parents=True,
     exist_ok=True,
 )
+MAX_UPLOAD_SIZE = 25 * 1024 * 1024  # 25 MB
 
+PDF_SIGNATURE = b"%PDF-"
 
 # ============================================================
 # Start Extraction
 # ============================================================
 
 @router.post("/extract")
+@limiter.limit("10/hour")
 async def extract(
+    request: Request,
     background_tasks: BackgroundTasks,
-
     file: UploadFile = File(...),
-
-    current_user=Depends(
-        get_current_user
-    ),
+    current_user=Depends(get_current_user),
 ):
 
     # --------------------------------------------------------
     # Validate PDF
     # --------------------------------------------------------
 
-    if (
-        file.content_type
-        != "application/pdf"
-    ):
+# --------------------------------------------------------
+# Validate Uploaded File
+# --------------------------------------------------------
 
+# Content-Type
+
+    if (
+        file.content_type is None
+        or file.content_type.lower() != "application/pdf"
+    ):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Only PDF files "
-                "are allowed."
-            ),
+            detail="Only PDF files are allowed.",
+        )
+
+
+    # Original filename
+
+    safe_filename = Path(
+        file.filename or "upload.pdf"
+    ).name
+
+    if not safe_filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail="File must have a .pdf extension.",
+        )
+
+
+    # File size
+
+    file.file.seek(0, 2)
+    file_size = file.file.tell()
+    file.file.seek(0)
+
+    if file_size == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty.",
+        )
+
+    if file_size > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="PDF exceeds the 25 MB upload limit.",
+        )
+
+
+    # PDF signature
+
+    header = file.file.read(len(PDF_SIGNATURE))
+    file.file.seek(0)
+
+    if header != PDF_SIGNATURE:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid PDF file.",
         )
 
 
@@ -93,13 +142,6 @@ async def extract(
     #
     # at the same time.
     # --------------------------------------------------------
-
-    safe_filename = (
-        Path(
-            file.filename
-            or "upload.pdf"
-        ).name
-    )
 
     pdf_path = (
         UPLOAD_FOLDER

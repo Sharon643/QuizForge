@@ -3,6 +3,8 @@ from fastapi import (
     HTTPException,
     Depends,
 )
+from fastapi import Request
+from core.security.rate_limit import limiter
 
 from auth.dependencies import (
     get_current_user,
@@ -375,12 +377,11 @@ def get_question_bank_questions(
 @router.post(
     "/question-banks/{bank_id}/generate-answers"
 )
+@limiter.limit("20/day")
 def generate_answers(
+    request: Request,
     bank_id: str,
-
-    current_user=Depends(
-        get_current_user
-    ),
+    current_user=Depends(get_current_user),
 ):
 
     db = SessionLocal()

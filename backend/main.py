@@ -10,7 +10,7 @@ from api import review
 from api.practice import router as practice_router
 from api.auth import router as auth_router
 from slowapi.middleware import SlowAPIMiddleware
-from core.rate_limit import limiter
+from core.security.rate_limit import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 
@@ -19,11 +19,15 @@ from slowapi import _rate_limit_exceeded_handler
 
 app = FastAPI()
 app.state.limiter = limiter
-app.add_middleware(SlowAPIMiddleware)
 
 app.add_exception_handler(
     RateLimitExceeded,
     _rate_limit_exceeded_handler,
+)
+
+
+app.add_middleware(
+    SlowAPIMiddleware
 )
 
 app.add_middleware(

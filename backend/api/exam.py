@@ -2,9 +2,12 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Request
 )
 
 from auth.dependencies import get_current_user
+
+from core.security.rate_limit import limiter
 
 from schemas.exam import (
     GenerateExamRequest,
@@ -26,7 +29,9 @@ service = ExamService()
     "/exam/generate",
     response_model=GenerateExamResponse,
 )
+@limiter.limit("30/minute")
 def generate_exam(
+    request_http: Request,
     request: GenerateExamRequest,
     current_user=Depends(get_current_user),
 ):

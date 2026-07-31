@@ -58,14 +58,17 @@ export default function UploadPdf() {
       setStatus("extracting");
 
       startPolling(response.jobId);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
 
       setStatus("error");
 
-      setError(
-        "Failed to upload PDF. Please try again."
-      );
+      const message =
+        err.response?.data?.detail ??
+        err.response?.data?.message ??
+        "Failed to upload PDF. Please try again.";
+
+      setError(message);
     }
   }
 

@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException,Depends
 from auth.dependencies import get_current_user
+from fastapi import Request
+from core.security.rate_limit import limiter
 
 from services.practice_service import PracticeService
 
@@ -13,7 +15,9 @@ router = APIRouter(prefix="/practice", tags=["Practice"])
 service = PracticeService()
 
 @router.post("/start")
+@limiter.limit("30/minute")
 def start_practice(
+    request_http: Request,
     request: StartPracticeRequest,
     current_user=Depends(get_current_user),
 ):
