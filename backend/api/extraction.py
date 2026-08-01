@@ -26,23 +26,16 @@ from utils.progress import (
     ProgressManager,
 )
 
+from core.config import (
+    UPLOAD_FOLDER,
+    MAX_UPLOAD_SIZE,
+    PDF_SIGNATURE,
+)
+
 
 router = APIRouter()
 
 service = ExtractionService()
-
-
-UPLOAD_FOLDER = Path(
-    "data/pdf"
-)
-
-UPLOAD_FOLDER.mkdir(
-    parents=True,
-    exist_ok=True,
-)
-MAX_UPLOAD_SIZE = 25 * 1024 * 1024  # 25 MB
-
-PDF_SIGNATURE = b"%PDF-"
 
 # ============================================================
 # Start Extraction

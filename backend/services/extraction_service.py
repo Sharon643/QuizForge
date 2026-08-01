@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import logging
 
 from database.database import SessionLocal
 from database.models import Question
@@ -26,6 +27,7 @@ class ExtractionService:
         progress = ProgressManager(
             job_id
         )
+        logger = logging.getLogger(__name__)
 
         progress.update(
             stage="starting",
@@ -266,3 +268,26 @@ class ExtractionService:
         finally:
 
             db.close()
+
+            try:
+                if pdf_path.exists():
+                    pdf_path.unlink()
+            except Exception as e:
+                    logger.warning(
+                        "Failed to delete uploaded PDF %s: %s",
+                        pdf_path,
+                        e,
+                    )
+
+            try:
+                output_file = Path(output_json)
+
+                if output_file.exists():
+                    output_file.unlink()
+
+            except Exception as e:
+                logger.warning(
+                    "Failed to delete temporary JSON %s: %s",
+                    output_json,
+                    e,
+                )

@@ -2,6 +2,8 @@ import os
 
 import jwt
 
+import time
+
 from dotenv import load_dotenv
 
 from fastapi import (
@@ -125,6 +127,7 @@ def get_current_user(
                 ]
             },
         )
+
 
         user_id = payload.get("sub")
         email = payload.get("email")

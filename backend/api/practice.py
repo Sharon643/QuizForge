@@ -17,14 +17,14 @@ service = PracticeService()
 @router.post("/start")
 @limiter.limit("30/minute")
 def start_practice(
-    request_http: Request,
-    request: StartPracticeRequest,
+    request: Request,
+    body: StartPracticeRequest,
     current_user=Depends(get_current_user),
 ):
     return service.start_practice(
     current_user["id"],
-    request.questionCount,
-    request.questionBankId,
+    body.questionCount,
+    body.questionBankId,
     )
 
 @router.get("/current")

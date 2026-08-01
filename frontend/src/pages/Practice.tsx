@@ -247,68 +247,58 @@ export default function Practice() {
   async function handleSelectOption(
     option: string
   ) {
-    if (
-      !practice ||
-      !currentQuestion
-    ) {
+    if (!practice || !currentQuestion) {
       return;
     }
 
-    // Prevent answering the same
-    // question again after feedback.
+    // Prevent answering the same question twice.
     if (showFeedback) {
       return;
     }
 
-    setAnswers(
-      (previous) => ({
-        ...previous,
+    // ----------------------------------------
+    // Update UI immediately
+    // ----------------------------------------
 
-        [currentQuestion.id]:
-          option,
-      })
+    const isCorrect =
+      option === currentQuestion.correct_answer;
+
+    setAnswers((previous) => ({
+      ...previous,
+      [currentQuestion.id]: option,
+    }));
+
+    setResults((previous) => ({
+      ...previous,
+      [currentQuestion.id]: isCorrect,
+    }));
+
+    setCorrectAnswer(
+      currentQuestion.correct_answer
     );
 
-    try {
-      const feedback =
-        await submitPracticeAnswer(
-          practice.practiceId,
-          currentQuestion.id,
-          option,
-        );
+    setAnswerCorrect(isCorrect);
 
-      // Store result for this
-      // specific question.
-      setResults(
-        (previous) => ({
-          ...previous,
+    setExplanation(
+      currentQuestion.explanation ?? ""
+    );
 
-          [currentQuestion.id]:
-            feedback.correct,
-        })
-      );
+    setShowFeedback(true);
 
-      setCorrectAnswer(
-        feedback.correctAnswer
-      );
+    // ----------------------------------------
+    // Save answer in background
+    // ----------------------------------------
 
-      setAnswerCorrect(
-        feedback.correct
-      );
-
-      setExplanation(
-        feedback.explanation ??
-          ""
-      );
-
-      setShowFeedback(true);
-
-    } catch (err) {
+    submitPracticeAnswer(
+      practice.practiceId,
+      currentQuestion.id,
+      option,
+    ).catch((err) => {
       console.error(
         "Failed to submit practice answer:",
         err
       );
-    }
+    });
   }
 
   // ---------- Previous Question ----------

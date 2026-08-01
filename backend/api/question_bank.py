@@ -18,6 +18,7 @@ from database.models import Question, QuestionBank
 from utils.question_bank import QuestionBankManager
 from services.answer_generator import AnswerGenerator
 from schemas.question import UpdateAnswerRequest
+import time
 
 
 router = APIRouter()
@@ -185,18 +186,18 @@ def get_questions(
 
 @router.get("/question-banks")
 def get_all_question_banks(
-    current_user=Depends(
-        get_current_user
-    ),
+    current_user=Depends(get_current_user),
 ):
+    start = time.perf_counter()
 
     db = SessionLocal()
 
     try:
-
         manager = QuestionBankManager(db)
 
+
         banks = manager.get_all_banks(current_user["id"])
+
 
         return {
             "count": len(banks),
@@ -204,7 +205,6 @@ def get_all_question_banks(
         }
 
     finally:
-
         db.close()
 
 

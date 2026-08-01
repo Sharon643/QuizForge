@@ -7,7 +7,7 @@ export interface PracticeQuestion {
 
   options: Record<string, string>;
 
-  correctAnswer: string;
+  correct_answer: string;
 
   explanation?: string;
 }

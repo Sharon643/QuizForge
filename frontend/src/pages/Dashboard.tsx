@@ -62,72 +62,56 @@ export default function Dashboard() {
     async function loadDashboard() {
       try {
 
+        const [
+          banksResponse,
+          examResponse,
+          practiceResponse,
+          historyResponse,
+        ] = await Promise.all([
+          getQuestionBanks(),
+          getCurrentExam(),
+          getCurrentPractice(),
+          getHistory(),
+        ]);
+
+        // --------------------------------------------------
         // Question Banks
+        // --------------------------------------------------
 
-        const data =
-          await getQuestionBanks();
-
-        setQuestionBanks(
-          data.banks
-        );
+        setQuestionBanks(banksResponse.banks);
 
         const active =
-          data.banks.find(
-            (bank: QuestionBank) =>
-              bank.active
+          banksResponse.banks.find(
+            (bank: QuestionBank) => bank.active
           ) ?? null;
 
-        setActiveBank(
-          active
-        );
+        setActiveBank(active);
 
-
+        // --------------------------------------------------
         // Current Exam
+        // --------------------------------------------------
 
-        const examResponse =
-          await getCurrentExam();
-
-        if (
-          examResponse.exists
-        ) {
-          setCurrentExam(
-            examResponse.exam
-          );
+        if (examResponse.exists) {
+          setCurrentExam(examResponse.exam);
         } else {
-          setCurrentExam(
-            null
-          );
+          setCurrentExam(null);
         }
 
-        const practiceResponse =
-            await getCurrentPractice();
+        // --------------------------------------------------
+        // Current Practice
+        // --------------------------------------------------
 
-        if (
-            practiceResponse.exists
-        ) {
-
-            setCurrentPractice(
-                practiceResponse.practice
-            );
-
-        }
-        else {
-
-            setCurrentPractice(
-                null
-            );
-
+        if (practiceResponse.exists) {
+          setCurrentPractice(practiceResponse.practice);
+        } else {
+          setCurrentPractice(null);
         }
 
+        // --------------------------------------------------
+        // History
+        // --------------------------------------------------
 
-        // Exam History
-
-        const historyResponse =
-          await getHistory();
-
-        setExamsTaken(
-          historyResponse.exams.length
-        );
+        setExamsTaken(historyResponse.exams.length);
 
       } catch (error) {
 
