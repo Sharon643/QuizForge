@@ -304,30 +304,20 @@ export default function Practice() {
   // ---------- Previous Question ----------
 
   function handlePrevious() {
-    const previousIndex =
-      Math.max(
-        currentQuestionIndex - 1,
-        0
-      );
-
-    setCurrentQuestionIndex(
-      previousIndex
+    const previousIndex = Math.max(
+      currentQuestionIndex - 1,
+      0
     );
 
-    setShowFeedback(false);
+    setCurrentQuestionIndex(previousIndex);
 
-    setVisitedQuestions(
-      (previous) => {
-        const updated =
-          new Set(previous);
+    restoreFeedback(previousIndex);
 
-        updated.add(
-          previousIndex + 1
-        );
-
-        return updated;
-      }
-    );
+    setVisitedQuestions((previous) => {
+      const updated = new Set(previous);
+      updated.add(previousIndex + 1);
+      return updated;
+    });
   }
 
   // ---------- Next Question ----------
@@ -335,30 +325,20 @@ export default function Practice() {
   function handleNext() {
     if (!practice) return;
 
-    const nextIndex =
-      Math.min(
-        currentQuestionIndex + 1,
-        practice.questionCount - 1
-      );
-
-    setCurrentQuestionIndex(
-      nextIndex
+    const nextIndex = Math.min(
+      currentQuestionIndex + 1,
+      practice.questionCount - 1
     );
 
-    setShowFeedback(false);
+    setCurrentQuestionIndex(nextIndex);
 
-    setVisitedQuestions(
-      (previous) => {
-        const updated =
-          new Set(previous);
+    restoreFeedback(nextIndex);
 
-        updated.add(
-          nextIndex + 1
-        );
-
-        return updated;
-      }
-    );
+    setVisitedQuestions((previous) => {
+      const updated = new Set(previous);
+      updated.add(nextIndex + 1);
+      return updated;
+    });
   }
 
   // ---------- Navigator ----------
@@ -366,24 +346,43 @@ export default function Practice() {
   function handleQuestionSelect(
     questionNumber: number
   ) {
-    setCurrentQuestionIndex(
-      questionNumber - 1
-    );
+    const index = questionNumber - 1;
 
-    setShowFeedback(false);
+    setCurrentQuestionIndex(index);
 
-    setVisitedQuestions(
-      (previous) => {
-        const updated =
-          new Set(previous);
+    restoreFeedback(index);
 
-        updated.add(
-          questionNumber
-        );
+    setVisitedQuestions((previous) => {
+      const updated = new Set(previous);
+      updated.add(questionNumber);
+      return updated;
+    });
+  }
 
-        return updated;
-      }
-    );
+  function restoreFeedback(questionIndex: number) {
+    if (!practice) {
+      setShowFeedback(false);
+      return;
+    }
+
+    const question = practice.questions[questionIndex];
+    const answer = practice.answers?.[question.id];
+
+    if (
+      answer &&
+      answer.selectedOption &&
+      answer.isCorrect !== null
+    ) {
+      setCorrectAnswer(answer.correctAnswer ?? "");
+      setAnswerCorrect(answer.isCorrect);
+      setExplanation(answer.explanation ?? "");
+      setShowFeedback(true);
+    } else {
+      setCorrectAnswer("");
+      setAnswerCorrect(false);
+      setExplanation("");
+      setShowFeedback(false);
+    }
   }
 
   // ---------- Finish Practice ----------
