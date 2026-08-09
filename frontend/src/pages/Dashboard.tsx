@@ -23,9 +23,33 @@ import type { QuestionBank } from "../types/questionBank";
 import { getQuestionBanks } from "../services/questionBank";
 import { getCurrentExam } from "../services/examService";
 import { getHistory } from "../services/historyService";
+import { getCurrentPractice } from "../services/practiceService";
 
 import { useAuth } from "../context/AuthContext";
-import {getCurrentPractice,} from "../services/practiceService";
+
+
+/* =========================================================
+   Dashboard Cache
+========================================================= */
+
+type DashboardCache = {
+  questionBanks: QuestionBank[];
+  activeBank: QuestionBank | null;
+  currentExam: any;
+  currentPractice: any;
+  examsTaken: number;
+  timestamp: number;
+};
+
+let dashboardCache: DashboardCache | null = null;
+
+
+/* =========================================================
+   Cache duration
+   30 seconds
+========================================================= */
+
+const CACHE_DURATION = 30 * 1000;
 
 
 export default function Dashboard() {
@@ -34,33 +58,69 @@ export default function Dashboard() {
   const { user } = useAuth();
 
   const [questionBanks, setQuestionBanks] =
-    useState<QuestionBank[]>([]);
+    useState<QuestionBank[]>(
+      dashboardCache?.questionBanks ?? []
+    );
 
   const [activeBank, setActiveBank] =
-    useState<QuestionBank | null>(null);
+    useState<QuestionBank | null>(
+      dashboardCache?.activeBank ?? null
+    );
 
   const [currentExam, setCurrentExam] =
-    useState<any>(null);
+    useState<any>(
+      dashboardCache?.currentExam ?? null
+    );
 
-  const [currentPractice,setCurrentPractice,] = 
-    useState<any>(null);
+  const [currentPractice, setCurrentPractice] =
+    useState<any>(
+      dashboardCache?.currentPractice ?? null
+    );
 
-  const [showPracticeDialog,setShowPracticeDialog,] = 
+  const [showPracticeDialog, setShowPracticeDialog] =
     useState(false);
 
   const [loading, setLoading] =
-    useState(true);
+    useState(!dashboardCache);
 
   const [examsTaken, setExamsTaken] =
-    useState(0);
+    useState(
+      dashboardCache?.examsTaken ?? 0
+    );
 
-  // --------------------------------------------------
-  // Load Dashboard Data
-  // --------------------------------------------------
+
+  /* =========================================================
+     Load Dashboard
+  ========================================================= */
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadDashboard() {
       try {
+        /*
+         * If cached data exists and is still fresh,
+         * show it immediately and don't make another request.
+         */
+
+        if (
+          dashboardCache &&
+          Date.now() - dashboardCache.timestamp <
+            CACHE_DURATION
+        ) {
+          setLoading(false);
+          return;
+        }
+
+        /*
+         * If cache exists but is stale,
+         * keep showing the existing dashboard while
+         * fresh data loads.
+         */
+
+        if (dashboardCache) {
+          setLoading(false);
+        }
 
         const [
           banksResponse,
@@ -74,78 +134,109 @@ export default function Dashboard() {
           getHistory(),
         ]);
 
-        // --------------------------------------------------
-        // Question Banks
-        // --------------------------------------------------
+        if (cancelled) {
+          return;
+        }
 
-        setQuestionBanks(banksResponse.banks);
+
+        /* =====================================================
+           Question Banks
+        ===================================================== */
+
+        const banks =
+          banksResponse.banks;
 
         const active =
-          banksResponse.banks.find(
-            (bank: QuestionBank) => bank.active
+          banks.find(
+            (bank: QuestionBank) =>
+              bank.active
           ) ?? null;
 
+
+        /* =====================================================
+           Current Exam
+        ===================================================== */
+
+        const exam =
+          examResponse.exists
+            ? examResponse.exam
+            : null;
+
+
+        /* =====================================================
+           Current Practice
+        ===================================================== */
+
+        const practice =
+          practiceResponse.exists
+            ? practiceResponse.practice
+            : null;
+
+
+        /* =====================================================
+           History
+        ===================================================== */
+
+        const examCount =
+          historyResponse.exams.length;
+
+
+        /* =====================================================
+           Update React state
+        ===================================================== */
+
+        setQuestionBanks(banks);
         setActiveBank(active);
+        setCurrentExam(exam);
+        setCurrentPractice(practice);
+        setExamsTaken(examCount);
 
-        // --------------------------------------------------
-        // Current Exam
-        // --------------------------------------------------
 
-        if (examResponse.exists) {
-          setCurrentExam(examResponse.exam);
-        } else {
-          setCurrentExam(null);
-        }
+        /* =====================================================
+           Update cache
+        ===================================================== */
 
-        // --------------------------------------------------
-        // Current Practice
-        // --------------------------------------------------
-
-        if (practiceResponse.exists) {
-          setCurrentPractice(practiceResponse.practice);
-        } else {
-          setCurrentPractice(null);
-        }
-
-        // --------------------------------------------------
-        // History
-        // --------------------------------------------------
-
-        setExamsTaken(historyResponse.exams.length);
+        dashboardCache = {
+          questionBanks: banks,
+          activeBank: active,
+          currentExam: exam,
+          currentPractice: practice,
+          examsTaken: examCount,
+          timestamp: Date.now(),
+        };
 
       } catch (error) {
-
         console.error(
           "Failed to load dashboard:",
           error
         );
-
       } finally {
-
-        setLoading(false);
-
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     loadDashboard();
 
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
 
-  // --------------------------------------------------
-  // Loading
-  // --------------------------------------------------
+  /* =========================================================
+     Loading
+  ========================================================= */
 
   if (loading) {
-    return (
-      <DashboardSkeleton />
-    );
+    return <DashboardSkeleton />;
   }
 
 
-  // --------------------------------------------------
-  // Current Exam Progress
-  // --------------------------------------------------
+  /* =========================================================
+     Current Exam Progress
+  ========================================================= */
 
   const answered =
     currentExam
@@ -162,29 +253,26 @@ export default function Dashboard() {
   const progress =
     currentExam &&
     currentExam.questionCount > 0
-
       ? Math.round(
-          (
-            answered /
-            currentExam.questionCount
-          ) * 100
+          (answered /
+            currentExam.questionCount) *
+            100
         )
-
       : 0;
 
 
-  // --------------------------------------------------
-  // User
-  // --------------------------------------------------
+  /* =========================================================
+     User
+  ========================================================= */
 
   const userName =
     user?.user_metadata?.name ||
     "there";
 
 
-  // --------------------------------------------------
-  // Render
-  // --------------------------------------------------
+  /* =========================================================
+     Render
+  ========================================================= */
 
   return (
     <main className="min-h-screen bg-zinc-950">
@@ -201,9 +289,7 @@ export default function Dashboard() {
         "
       >
 
-        {/* ==================================================
-            Header
-        ================================================== */}
+        {/* Header */}
 
         <div
           className="
@@ -213,17 +299,13 @@ export default function Dashboard() {
             gap-4
           "
         >
-
           <DashboardHeader />
 
           <UserMenu />
-
         </div>
 
 
-        {/* ==================================================
-            Welcome
-        ================================================== */}
+        {/* Welcome */}
 
         <section>
 
@@ -249,9 +331,7 @@ export default function Dashboard() {
         </section>
 
 
-        {/* ==================================================
-            Statistics
-        ================================================== */}
+        {/* Statistics */}
 
         <section>
 
@@ -266,23 +346,18 @@ export default function Dashboard() {
             <StatCard
               title="Questions"
               value={
-                activeBank?.questionCount ??
-                0
+                activeBank?.questionCount ?? 0
               }
             />
 
             <StatCard
               title="Exams Taken"
-              value={
-                examsTaken
-              }
+              value={examsTaken}
             />
 
             <StatCard
               title="Question Banks"
-              value={
-                questionBanks.length
-              }
+              value={questionBanks.length}
             />
 
           </div>
@@ -290,9 +365,7 @@ export default function Dashboard() {
         </section>
 
 
-        {/* ==================================================
-            Continue + Question Bank
-        ================================================== */}
+        {/* Continue + Question Bank */}
 
         <section>
 
@@ -305,83 +378,59 @@ export default function Dashboard() {
           >
 
             <ContinueCard
-
               title={
                 currentExam
                   ? "Continue Exam"
                   : "No Active Exam"
               }
-
               questionCount={
-                currentExam?.questionCount ??
-                0
+                currentExam?.questionCount ?? 0
               }
-
-              progress={
-                progress
-              }
-
+              progress={progress}
               lastStudied={
                 currentExam
-
                   ? new Date(
                       currentExam.startedAt
                     ).toLocaleDateString()
-
                   : "N/A"
               }
-
               onResume={() =>
                 currentExam
-
                   ? navigate(
                       `/exam/${currentExam.examId}`
                     )
-
                   : navigate(
                       "/exam-settings"
                     )
               }
-
             />
 
 
             <QuestionBankCard
-
               fileName={
                 activeBank?.fileName ??
                 "No Question Bank"
               }
-
               questionCount={
-                activeBank?.questionCount ??
-                0
+                activeBank?.questionCount ?? 0
               }
-
               uploadedAt={
                 activeBank?.uploadedAt
-
                   ? new Date(
                       activeBank.uploadedAt
                     ).toLocaleDateString(
                       "en-GB"
                     )
-
                   : "N/A"
               }
-
               onManage={() =>
                 navigate(
                   "/question-bank"
                 )
               }
-
               onUpload={() =>
-                navigate(
-                  "/upload"
-                )
+                navigate("/upload")
               }
-
             />
 
           </div>
@@ -389,9 +438,7 @@ export default function Dashboard() {
         </section>
 
 
-        {/* ==================================================
-            Get Started
-        ================================================== */}
+        {/* Get Started */}
 
         <section>
 
@@ -429,116 +476,86 @@ export default function Dashboard() {
           >
 
             <QuickActionCard
-
               title="Upload PDF"
-
-              description="
-                Import questions into your question bank.
-              "
-
+              description="Import questions into your question bank."
               icon={
                 <Upload
                   size={22}
                   className="text-zinc-400"
                 />
               }
-
               onClick={() =>
-                navigate(
-                  "/upload"
-                )
+                navigate("/upload")
               }
-
             />
 
 
             <QuickActionCard
-
               title="Start Exam"
-
-              description="
-                Simulate a real timed examination.
-              "
-
+              description="Simulate a real timed examination."
               icon={
                 <ClipboardList
                   size={22}
                   className="text-zinc-400"
                 />
               }
-
               onClick={() =>
                 navigate(
                   "/exam-settings"
                 )
               }
-
             />
 
 
             <QuickActionCard
-
               title={
-                  currentPractice
-                      ? "Continue Practice"
-                      : "Practice"
+                currentPractice
+                  ? "Continue Practice"
+                  : "Practice"
               }
-
               description={
-                  currentPractice
-
-                      ? `Resume ${Object.keys(
-                          currentPractice.answers ?? {}
-                        ).length} / ${currentPractice.questionCount} questions`
-
-                      : "Practice with instant feedback."
+                currentPractice
+                  ? `Resume ${
+                      Object.keys(
+                        currentPractice.answers ?? {}
+                      ).length
+                    } / ${
+                      currentPractice.questionCount
+                    } questions`
+                  : "Practice with instant feedback."
               }
-
               icon={
                 <Brain
                   size={22}
                   className="text-zinc-400"
                 />
               }
-
               onClick={() => {
 
-                  if (currentPractice) {
-
-                      setShowPracticeDialog(true);
-
-                  } else {
-
-                      navigate("/practice/settings");
-
-                  }
+                if (currentPractice) {
+                  setShowPracticeDialog(true);
+                } else {
+                  navigate(
+                    "/practice/settings"
+                  );
+                }
 
               }}
-
             />
 
 
             <QuickActionCard
-
               title="Exam History"
-
-              description="
-                Review previous exams.
-              "
-
+              description="Review previous exams."
               icon={
                 <RotateCcw
                   size={22}
                   className="text-zinc-400"
                 />
               }
-
               onClick={() =>
-                navigate(
-                  "/history"
-                )
+                navigate("/history")
               }
-
             />
 
           </div>
@@ -546,32 +563,26 @@ export default function Dashboard() {
         </section>
 
       </div>
+
+
+      {/* Continue Practice Dialog */}
+
       <ContinuePracticeDialog
-
-          open={showPracticeDialog}
-
-          practice={currentPractice}
-
-          onClose={() =>
-              setShowPracticeDialog(false)
-          }
-
-          onContinue={() => {
-
-              navigate(
-                  `/practice/${currentPractice.practiceId}`
-              );
-
-          }}
-
-          onStartNew={() => {
-
-              navigate(
-                  "/practice/settings"
-              );
-
-          }}
-
+        open={showPracticeDialog}
+        practice={currentPractice}
+        onClose={() =>
+          setShowPracticeDialog(false)
+        }
+        onContinue={() =>
+          navigate(
+            `/practice/${currentPractice.practiceId}`
+          )
+        }
+        onStartNew={() =>
+          navigate(
+            "/practice/settings"
+          )
+        }
       />
 
     </main>
