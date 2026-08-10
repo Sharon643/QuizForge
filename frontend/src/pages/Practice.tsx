@@ -12,6 +12,12 @@ import {
   finishPractice,
 } from "../services/practiceService";
 
+import {
+  getCached,
+  setCached,
+  invalidateCache,
+} from "../utils/apiCache";
+
 import ExamHeader from "../components/exam/ExamHeader";
 import QuestionPanel from "../components/exam/QuestionPanel";
 import QuestionNavigator from "../components/exam/QuestionNavigator";
@@ -22,6 +28,11 @@ export default function Practice() {
   const { practiceId } = useParams();
   const navigate = useNavigate();
 
+
+  // =========================================================
+  // Practice State
+  // =========================================================
+
   const [practice, setPractice] =
     useState<PracticeSession | null>(null);
 
@@ -30,6 +41,11 @@ export default function Practice() {
 
   const [error, setError] =
     useState("");
+
+
+  // =========================================================
+  // Question State
+  // =========================================================
 
   const [
     currentQuestionIndex,
@@ -40,8 +56,6 @@ export default function Practice() {
     Record<string, string | null>
   >({});
 
-  // Stores whether each answered question
-  // was correct or incorrect.
   const [results, setResults] = useState<
     Record<string, boolean>
   >({});
@@ -53,7 +67,10 @@ export default function Practice() {
     new Set([1])
   );
 
-  // ---------- Practice Feedback ----------
+
+  // =========================================================
+  // Practice Feedback
+  // =========================================================
 
   const [showFeedback, setShowFeedback] =
     useState(false);
@@ -73,7 +90,70 @@ export default function Practice() {
     setExplanation,
   ] = useState("");
 
-  // ---------------------------------------
+
+  // =========================================================
+  // Restore Session State
+  // =========================================================
+
+  function restoreSessionState(
+    session: PracticeSession
+  ) {
+    const restoredAnswers: Record<
+      string,
+      string | null
+    > = {};
+
+    const restoredVisited =
+      new Set<number>([1]);
+
+    const restoredResults: Record<
+      string,
+      boolean
+    > = {};
+
+    session.questions.forEach(
+      (question, index) => {
+        const answer =
+          session.answers?.[question.id];
+
+        if (!answer) {
+          return;
+        }
+
+        if (answer.selectedOption) {
+          restoredAnswers[
+            question.id
+          ] = answer.selectedOption;
+
+          restoredVisited.add(
+            index + 1
+          );
+        }
+
+        if (
+          answer.isCorrect !== null &&
+          answer.isCorrect !== undefined
+        ) {
+          restoredResults[
+            question.id
+          ] = answer.isCorrect;
+        }
+      }
+    );
+
+    setAnswers(restoredAnswers);
+
+    setResults(restoredResults);
+
+    setVisitedQuestions(
+      restoredVisited
+    );
+  }
+
+
+  // =========================================================
+  // Load Practice
+  // =========================================================
 
   useEffect(() => {
     async function loadPractice() {
@@ -81,78 +161,57 @@ export default function Practice() {
         setError(
           "Invalid practice session."
         );
+
         setLoading(false);
+
         return;
       }
 
+      const cacheKey =
+        `practice:${practiceId}`;
+
+
+      // -------------------------------------------------------
+      // Check cache first
+      // -------------------------------------------------------
+
+      const cachedPractice =
+        getCached<PracticeSession>(
+          cacheKey
+        );
+
+      if (cachedPractice) {
+        setPractice(cachedPractice);
+
+        restoreSessionState(
+          cachedPractice
+        );
+
+        setLoading(false);
+
+        return;
+      }
+
+
+      // -------------------------------------------------------
+      // Fetch from backend
+      // -------------------------------------------------------
+
       try {
         const session =
-          await getPractice(practiceId);
+          await getPractice(
+            practiceId
+          );
 
         setPractice(session);
 
-        const restoredAnswers: Record<
-          string,
-          string | null
-        > = {};
-
-        const restoredVisited =
-          new Set<number>([1]);
-          
-        const restoredResults: Record<
-            string,
-            boolean
-        > = {};
-      session.questions.forEach(
-          (question, index) => {
-
-              const answer =
-                  session.answers?.[
-                      question.id
-                  ];
-
-              if (!answer) return;
-
-              if (answer.selectedOption) {
-
-                  restoredAnswers[
-                      question.id
-                  ] =
-                      answer.selectedOption;
-
-                  restoredVisited.add(
-                      index + 1
-                  );
-
-              }
-
-              if (
-                  answer.isCorrect !==
-                  null &&
-                  answer.isCorrect !==
-                  undefined
-              ) {
-
-                  restoredResults[
-                      question.id
-                  ] =
-                      answer.isCorrect;
-
-              }
-
-          }
-      );
-
-        setAnswers(
-          restoredAnswers
+        setCached(
+          cacheKey,
+          session
         );
 
-        setResults(
-            restoredResults
-        );
-
-        setVisitedQuestions(
-          restoredVisited
+        restoreSessionState(
+          session
         );
 
       } catch (err) {
@@ -168,10 +227,12 @@ export default function Practice() {
     }
 
     loadPractice();
-
   }, [practiceId]);
 
-  // ---------- Current Question ----------
+
+  // =========================================================
+  // Current Question
+  // =========================================================
 
   const currentQuestion =
     useMemo(() => {
@@ -182,13 +243,15 @@ export default function Practice() {
       return practice.questions[
         currentQuestionIndex
       ];
-
     }, [
       practice,
       currentQuestionIndex,
     ]);
 
-  // ---------- Answered Questions ----------
+
+  // =========================================================
+  // Answered Questions
+  // =========================================================
 
   const answeredQuestions =
     useMemo(() => {
@@ -212,13 +275,15 @@ export default function Practice() {
       );
 
       return answered;
-
     }, [
       answers,
       practice,
     ]);
 
-  // ---------- Correct / Wrong Counts ----------
+
+  // =========================================================
+  // Correct / Wrong Counts
+  // =========================================================
 
   const correctCount =
     useMemo(() => {
@@ -228,8 +293,8 @@ export default function Practice() {
         (value) =>
           value === true
       ).length;
-
     }, [results]);
+
 
   const wrongCount =
     useMemo(() => {
@@ -239,60 +304,175 @@ export default function Practice() {
         (value) =>
           value === false
       ).length;
-
     }, [results]);
 
-  // ---------- Submit Answer ----------
+
+  // =========================================================
+  // Restore Feedback
+  // =========================================================
+
+  function restoreFeedback(
+    questionIndex: number
+  ) {
+    if (!practice) {
+      setShowFeedback(false);
+      return;
+    }
+
+    const question =
+      practice.questions[
+        questionIndex
+      ];
+
+    if (!question) {
+      setShowFeedback(false);
+      return;
+    }
+
+    const answer =
+      practice.answers?.[
+        question.id
+      ];
+
+    if (
+      answer &&
+      answer.selectedOption &&
+      answer.isCorrect !== null &&
+      answer.isCorrect !== undefined
+    ) {
+      setCorrectAnswer(
+        answer.correctAnswer ?? ""
+      );
+
+      setAnswerCorrect(
+        answer.isCorrect
+      );
+
+      setExplanation(
+        answer.explanation ?? ""
+      );
+
+      setShowFeedback(true);
+
+    } else {
+      setCorrectAnswer("");
+
+      setAnswerCorrect(false);
+
+      setExplanation("");
+
+      setShowFeedback(false);
+    }
+  }
+
+
+  // =========================================================
+  // Submit Answer
+  // =========================================================
 
   async function handleSelectOption(
     option: string
   ) {
-    if (!practice || !currentQuestion) {
+    if (
+      !practice ||
+      !currentQuestion
+    ) {
       return;
     }
 
-    // Prevent answering the same question twice.
+    // Prevent answering twice.
     if (showFeedback) {
       return;
     }
 
-    // ----------------------------------------
-    // Update UI immediately
-    // ----------------------------------------
+
+    // -------------------------------------------------------
+    // Calculate result locally
+    // -------------------------------------------------------
 
     const isCorrect =
-      option === currentQuestion.correct_answer;
+      option ===
+      currentQuestion.correct_answer;
+
+
+    // -------------------------------------------------------
+    // Update UI immediately
+    // -------------------------------------------------------
 
     setAnswers((previous) => ({
       ...previous,
-      [currentQuestion.id]: option,
+
+      [currentQuestion.id]:
+        option,
     }));
 
     setResults((previous) => ({
       ...previous,
-      [currentQuestion.id]: isCorrect,
+
+      [currentQuestion.id]:
+        isCorrect,
     }));
 
     setCorrectAnswer(
       currentQuestion.correct_answer
     );
 
-    setAnswerCorrect(isCorrect);
+    setAnswerCorrect(
+      isCorrect
+    );
 
     setExplanation(
-      currentQuestion.explanation ?? ""
+      currentQuestion.explanation ??
+      ""
     );
 
     setShowFeedback(true);
 
-    // ----------------------------------------
+
+    // -------------------------------------------------------
+    // Update local practice state + cache
+    // -------------------------------------------------------
+
+    setPractice((previous) => {
+      if (!previous) {
+        return previous;
+      }
+
+      const updatedPractice = {
+        ...previous,
+
+        answers: {
+          ...(previous.answers ?? {}),
+
+          [currentQuestion.id]: {
+            selectedOption: option,
+            isCorrect,
+            correctAnswer:
+              currentQuestion.correct_answer,
+            explanation:
+              currentQuestion.explanation ??
+              "",
+          },
+        },
+      };
+
+      setCached(
+        `practice:${previous.practiceId}`,
+        updatedPractice
+      );
+
+      return updatedPractice;
+    });
+
+
+    // -------------------------------------------------------
     // Save answer in background
-    // ----------------------------------------
+    // -------------------------------------------------------
 
     submitPracticeAnswer(
       practice.practiceId,
       currentQuestion.id,
-      option,
+      option
     ).catch((err) => {
       console.error(
         "Failed to submit practice answer:",
@@ -301,100 +481,132 @@ export default function Practice() {
     });
   }
 
-  // ---------- Previous Question ----------
+
+  // =========================================================
+  // Previous Question
+  // =========================================================
 
   function handlePrevious() {
-    const previousIndex = Math.max(
-      currentQuestionIndex - 1,
-      0
+    const previousIndex =
+      Math.max(
+        currentQuestionIndex - 1,
+        0
+      );
+
+    setCurrentQuestionIndex(
+      previousIndex
     );
 
-    setCurrentQuestionIndex(previousIndex);
+    restoreFeedback(
+      previousIndex
+    );
 
-    restoreFeedback(previousIndex);
+    setVisitedQuestions(
+      (previous) => {
+        const updated =
+          new Set(previous);
 
-    setVisitedQuestions((previous) => {
-      const updated = new Set(previous);
-      updated.add(previousIndex + 1);
-      return updated;
-    });
+        updated.add(
+          previousIndex + 1
+        );
+
+        return updated;
+      }
+    );
   }
 
-  // ---------- Next Question ----------
+
+  // =========================================================
+  // Next Question
+  // =========================================================
 
   function handleNext() {
-    if (!practice) return;
+    if (!practice) {
+      return;
+    }
 
-    const nextIndex = Math.min(
-      currentQuestionIndex + 1,
-      practice.questionCount - 1
+    const nextIndex =
+      Math.min(
+        currentQuestionIndex + 1,
+        practice.questionCount - 1
+      );
+
+    setCurrentQuestionIndex(
+      nextIndex
     );
 
-    setCurrentQuestionIndex(nextIndex);
+    restoreFeedback(
+      nextIndex
+    );
 
-    restoreFeedback(nextIndex);
+    setVisitedQuestions(
+      (previous) => {
+        const updated =
+          new Set(previous);
 
-    setVisitedQuestions((previous) => {
-      const updated = new Set(previous);
-      updated.add(nextIndex + 1);
-      return updated;
-    });
+        updated.add(
+          nextIndex + 1
+        );
+
+        return updated;
+      }
+    );
   }
 
-  // ---------- Navigator ----------
+
+  // =========================================================
+  // Question Navigator
+  // =========================================================
 
   function handleQuestionSelect(
     questionNumber: number
   ) {
-    const index = questionNumber - 1;
+    const index =
+      questionNumber - 1;
 
-    setCurrentQuestionIndex(index);
+    setCurrentQuestionIndex(
+      index
+    );
 
     restoreFeedback(index);
 
-    setVisitedQuestions((previous) => {
-      const updated = new Set(previous);
-      updated.add(questionNumber);
-      return updated;
-    });
+    setVisitedQuestions(
+      (previous) => {
+        const updated =
+          new Set(previous);
+
+        updated.add(
+          questionNumber
+        );
+
+        return updated;
+      }
+    );
   }
 
-  function restoreFeedback(questionIndex: number) {
-    if (!practice) {
-      setShowFeedback(false);
-      return;
-    }
 
-    const question = practice.questions[questionIndex];
-    const answer = practice.answers?.[question.id];
-
-    if (
-      answer &&
-      answer.selectedOption &&
-      answer.isCorrect !== null
-    ) {
-      setCorrectAnswer(answer.correctAnswer ?? "");
-      setAnswerCorrect(answer.isCorrect);
-      setExplanation(answer.explanation ?? "");
-      setShowFeedback(true);
-    } else {
-      setCorrectAnswer("");
-      setAnswerCorrect(false);
-      setExplanation("");
-      setShowFeedback(false);
-    }
-  }
-
-  // ---------- Finish Practice ----------
+  // =========================================================
+  // Finish Practice
+  // =========================================================
 
   async function handleFinishPractice() {
-    if (!practice) return;
+    if (!practice) {
+      return;
+    }
 
     try {
       const result =
         await finishPractice(
           practice.practiceId
         );
+
+
+      // Practice is finished.
+      // Remove the active-session cache.
+      invalidateCache(
+        `practice:${practice.practiceId}`
+      );
+
 
       navigate(
         "/practice/result",
@@ -411,13 +623,19 @@ export default function Practice() {
     }
   }
 
-  // ---------- Loading ----------
+
+  // =========================================================
+  // Loading
+  // =========================================================
 
   if (loading) {
     return <PracticeSkeleton />;
   }
 
-  // ---------- Error ----------
+
+  // =========================================================
+  // Error
+  // =========================================================
 
   if (
     error ||
@@ -434,12 +652,17 @@ export default function Practice() {
     );
   }
 
-  // ---------- UI ----------
+
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
     <main className="min-h-screen bg-zinc-950">
 
       <div className="mx-auto max-w-[1800px] px-8 py-8">
+
+        {/* Header */}
 
         <ExamHeader
           current={
@@ -454,15 +677,16 @@ export default function Practice() {
           timed={false}
           remainingSeconds={null}
           onExit={() =>
-            navigate(
-              "/dashboard"
-            )
+            navigate("/dashboard")
           }
         />
 
+
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
 
-          {/* LEFT */}
+          {/* =================================================
+              LEFT
+          ================================================= */}
 
           <section>
 
@@ -506,8 +730,7 @@ export default function Practice() {
 
               hasNext={
                 currentQuestionIndex <
-                practice.questionCount -
-                  1
+                practice.questionCount - 1
               }
 
               isMarkedForReview={
@@ -531,7 +754,10 @@ export default function Practice() {
 
           </section>
 
-          {/* RIGHT */}
+
+          {/* =================================================
+              RIGHT
+          ================================================= */}
 
           <aside className="sticky top-8 self-start space-y-6">
 
@@ -561,6 +787,7 @@ export default function Practice() {
               }
             />
 
+
             {/* Practice Progress */}
 
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
@@ -585,6 +812,7 @@ export default function Practice() {
 
                 </div>
 
+
                 {/* Wrong */}
 
                 <div className="flex items-center justify-between">
@@ -598,6 +826,7 @@ export default function Practice() {
                   </span>
 
                 </div>
+
 
                 {/* Remaining */}
 
@@ -617,6 +846,7 @@ export default function Practice() {
               </div>
 
             </div>
+
 
             {/* Finish */}
 
