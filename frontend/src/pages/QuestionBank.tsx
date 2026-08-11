@@ -13,6 +13,12 @@ import {
   deleteQuestionBank,
 } from "../services/questionBank";
 
+import {
+  getCached,
+  setCached,
+  invalidateCache,
+} from "../utils/apiCache";
+
 import QuestionBankHeader from "../components/question-bank/QuestionBankHeader";
 import QuestionBankCard from "../components/question-bank/QuestionBankCard";
 import QuestionBankInfo from "../components/question-bank/QuestionBankInfo";
@@ -22,12 +28,29 @@ import QuestionBankSkeleton from "../components/question-bank/QuestionBankSkelet
 import QuestionDetailsModal from "../components/question-bank/QuestionDetailsModal";
 import EditAnswerDialog from "../components/question-bank/EditAnswerDialog";
 
+
+const QUESTION_BANK_CACHE_KEY =
+  "question-banks";
+
+
 export default function QuestionBank() {
-  const [banks, setBanks] = useState<QuestionBank[]>([]);
+  // =========================================================
+  // Banks
+  // =========================================================
+
+  const [banks, setBanks] =
+    useState<QuestionBank[]>([]);
+
   const [selectedBank, setSelectedBank] =
     useState<QuestionBank | null>(null);
 
-  const [questions, setQuestions] = useState<QuestionSummary[]>([]);
+
+  // =========================================================
+  // Questions
+  // =========================================================
+
+  const [questions, setQuestions] =
+    useState<QuestionSummary[]>([]);
 
   const [selectedQuestion, setSelectedQuestion] =
     useState<QuestionSummary | null>(null);
@@ -35,63 +58,135 @@ export default function QuestionBank() {
   const [editingQuestion, setEditingQuestion] =
     useState<QuestionSummary | null>(null);
 
-  const [search, setSearch] = useState("");
 
-  const [filter, setFilter] = useState<
-  "all" | "official" | "ai" | "manual" | "missing"
-  >("all");
+  // =========================================================
+  // Filters
+  // =========================================================
 
-  const [loading, setLoading] = useState(true);
+  const [search, setSearch] =
+    useState("");
+
+  const [filter, setFilter] =
+    useState<
+      "all" |
+      "official" |
+      "ai" |
+      "manual" |
+      "missing"
+    >("all");
+
+
+  // =========================================================
+  // Loading / Error
+  // =========================================================
+
+  const [loading, setLoading] =
+    useState(true);
 
   const [loadingQuestions, setLoadingQuestions] =
     useState(false);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
 
-  const [searchParams] = useSearchParams();
+
+  const [searchParams] =
+    useSearchParams();
+
+
+  // =========================================================
+  // URL Filter
+  // =========================================================
+
+  useEffect(() => {
+    const urlFilter =
+      searchParams.get("filter");
+
+    if (
+      urlFilter === "official" ||
+      urlFilter === "ai" ||
+      urlFilter === "manual" ||
+      urlFilter === "missing"
+    ) {
+      setFilter(urlFilter);
+    } else {
+      setFilter("all");
+    }
+  }, [searchParams]);
+
+
+  // =========================================================
+  // Load Banks
+  // =========================================================
 
   useEffect(() => {
     loadBanks();
   }, []);
-  useEffect(() => {
 
-  const urlFilter =
-    searchParams.get("filter");
 
-  if (
-    urlFilter === "official" ||
-    urlFilter === "ai" ||
-    urlFilter === "manual" ||
-    urlFilter === "missing"
+  async function loadBanks(
+    forceRefresh = false
   ) {
-
-    setFilter(urlFilter);
-
-  } else {
-
-    setFilter("all");
-
-  }
-
-}, [searchParams]);
-
-  async function loadBanks() {
     try {
+      setError("");
+
+
+      // -------------------------------------------------------
+      // Use cache unless explicitly refreshing
+      // -------------------------------------------------------
+
+      if (!forceRefresh) {
+        const cached =
+          getCached<{
+            banks: QuestionBank[];
+          }>(
+            QUESTION_BANK_CACHE_KEY
+          );
+
+        if (cached) {
+          setBanks(cached.banks);
+          setLoading(false);
+          return;
+        }
+      }
+
+
+      // -------------------------------------------------------
+      // Fetch fresh data
+      // -------------------------------------------------------
+
       setLoading(true);
 
       const response =
         await getQuestionBanks();
 
-      setBanks(response.banks);
+
+      // Save for Dashboard / Exam Settings
+      setCached(
+        QUESTION_BANK_CACHE_KEY,
+        response
+      );
+
+      setBanks(
+        response.banks
+      );
+
     } catch (err) {
       console.error(err);
+
       setError(
         "Failed to load question banks."
       );
+
     } finally {
       setLoading(false);
     }
   }
+
+
+  // =========================================================
+  // Open Bank
+  // =========================================================
 
   async function openBank(
     bank: QuestionBank
@@ -106,136 +201,247 @@ export default function QuestionBank() {
           bank.id
         );
 
-      setQuestions(response.questions);
+      setQuestions(
+        response.questions
+      );
 
       setSearch("");
 
       setSelectedQuestion(null);
+
     } catch (err) {
       console.error(err);
 
       setError(
         "Failed to load questions."
       );
+
     } finally {
       setLoadingQuestions(false);
     }
   }
 
+
+  // =========================================================
+  // Make Active
+  // =========================================================
+
   async function handleMakeActive() {
-    if (!selectedBank) return;
+    if (!selectedBank) {
+      return;
+    }
 
-    await selectQuestionBank(
-      selectedBank.id
-    );
+    try {
+      await selectQuestionBank(
+        selectedBank.id
+      );
 
-    await loadBanks();
 
-    setSelectedBank({
-      ...selectedBank,
-      active: true,
-    });
+      // The active bank changed.
+      // Cached bank data is now stale.
+      invalidateCache(
+        QUESTION_BANK_CACHE_KEY
+      );
+
+
+      // Fetch fresh bank list.
+      await loadBanks(true);
+
+
+      setSelectedBank(
+        (previous) =>
+          previous
+            ? {
+                ...previous,
+                active: true,
+              }
+            : null
+      );
+
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        "Failed to activate question bank."
+      );
+    }
   }
+
+
+  // =========================================================
+  // Delete Bank
+  // =========================================================
 
   async function handleDelete() {
-    if (!selectedBank) return;
+    if (!selectedBank) {
+      return;
+    }
 
-    const confirmed = window.confirm(
-      `Delete "${selectedBank.fileName}"?`
-    );
+    const confirmed =
+      window.confirm(
+        `Delete "${selectedBank.fileName}"?`
+      );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
-    await deleteQuestionBank(
-      selectedBank.id
-    );
+    try {
+      await deleteQuestionBank(
+        selectedBank.id
+      );
 
-    setSelectedBank(null);
 
-    setQuestions([]);
+      // Deleted bank means cache is stale.
+      invalidateCache(
+        QUESTION_BANK_CACHE_KEY
+      );
 
-    await loadBanks();
+
+      setSelectedBank(null);
+      setQuestions([]);
+
+
+      // Fetch fresh list.
+      await loadBanks(true);
+
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        "Failed to delete question bank."
+      );
+    }
   }
-  const counts = useMemo(() => ({
 
-    all: questions.length,
 
-    official: questions.filter(
-      q => q.answer_source === "official"
-    ).length,
+  // =========================================================
+  // Question Counts
+  // =========================================================
 
-    ai: questions.filter(
-      q => q.answer_source === "ai"
-    ).length,
+  const counts = useMemo(
+    () => ({
+      all: questions.length,
 
-    manual: questions.filter(
-      q => q.answer_source === "manual"
-    ).length,
+      official:
+        questions.filter(
+          (q) =>
+            q.answer_source ===
+            "official"
+        ).length,
 
-    missing: questions.filter(
-      q => !q.correct_answer
-    ).length,
+      ai:
+        questions.filter(
+          (q) =>
+            q.answer_source ===
+            "ai"
+        ).length,
 
-  }), [questions]);
+      manual:
+        questions.filter(
+          (q) =>
+            q.answer_source ===
+            "manual"
+        ).length,
 
-  const filteredQuestions = useMemo(() => {
+      missing:
+        questions.filter(
+          (q) =>
+            !q.correct_answer
+        ).length,
+    }),
+    [questions]
+  );
 
-    let filtered = [...questions];
 
-    switch (filter) {
+  // =========================================================
+  // Filtered Questions
+  // =========================================================
 
-      case "official":
-        filtered = filtered.filter(
-          q => q.answer_source === "official"
-        );
-        break;
+  const filteredQuestions =
+    useMemo(() => {
+      let filtered =
+        [...questions];
 
-      case "ai":
-        filtered = filtered.filter(
-          q => q.answer_source === "ai"
-        );
-        break;
 
-      case "manual":
-        filtered = filtered.filter(
-            q => q.answer_source === "manual"
-        );
-        break;
+      switch (filter) {
+        case "official":
+          filtered =
+            filtered.filter(
+              (q) =>
+                q.answer_source ===
+                "official"
+            );
+          break;
 
-      case "missing":
-        filtered = filtered.filter(
-          q => !q.correct_answer
-        );
-        break;
+        case "ai":
+          filtered =
+            filtered.filter(
+              (q) =>
+                q.answer_source ===
+                "ai"
+            );
+          break;
 
-    }
+        case "manual":
+          filtered =
+            filtered.filter(
+              (q) =>
+                q.answer_source ===
+                "manual"
+            );
+          break;
 
-    if (!search.trim()) {
-      return filtered;
-    }
+        case "missing":
+          filtered =
+            filtered.filter(
+              (q) =>
+                !q.correct_answer
+            );
+          break;
+      }
 
-    const query = search.toLowerCase();
 
-    return filtered.filter(
-      question =>
-        question.question
-          .toLowerCase()
-          .includes(query) ||
+      if (!search.trim()) {
+        return filtered;
+      }
 
-        question.subject
-          ?.toLowerCase()
-          .includes(query)
-    );
 
-  }, [questions, search, filter]);
+      const query =
+        search.toLowerCase();
+
+
+      return filtered.filter(
+        (question) =>
+          question.question
+            .toLowerCase()
+            .includes(query) ||
+
+          question.subject
+            ?.toLowerCase()
+            .includes(query)
+      );
+
+    }, [
+      questions,
+      search,
+      filter,
+    ]);
+
+
+  // =========================================================
+  // Question Navigation
+  // =========================================================
 
   const currentIndex =
     selectedQuestion
       ? filteredQuestions.findIndex(
           (q) =>
-            q.id === selectedQuestion.id
+            q.id ===
+            selectedQuestion.id
         )
       : -1;
+
 
   const hasPrevious =
     currentIndex > 0;
@@ -245,65 +451,102 @@ export default function QuestionBank() {
     currentIndex <
       filteredQuestions.length - 1;
 
+
   function handlePrevious() {
-    if (hasPrevious) {
-      setSelectedQuestion(
-        filteredQuestions[
-          currentIndex - 1
-        ]
-      );
+    if (!hasPrevious) {
+      return;
     }
+
+    setSelectedQuestion(
+      filteredQuestions[
+        currentIndex - 1
+      ]
+    );
   }
+
 
   function handleNext() {
-    if (hasNext) {
-      setSelectedQuestion(
-        filteredQuestions[
-          currentIndex + 1
-        ]
-      );
+    if (!hasNext) {
+      return;
     }
+
+    setSelectedQuestion(
+      filteredQuestions[
+        currentIndex + 1
+      ]
+    );
   }
 
+
+  // =========================================================
+  // Question Updated
+  // =========================================================
+
   function handleQuestionUpdated(
-  updatedQuestion: QuestionSummary
-) {
+    updatedQuestion: QuestionSummary
+  ) {
+    setQuestions(
+      (previous) =>
+        previous.map(
+          (question) =>
+            question.id ===
+            updatedQuestion.id
+              ? updatedQuestion
+              : question
+        )
+    );
 
-  setQuestions(prev =>
-    prev.map(question =>
-      question.id === updatedQuestion.id
-        ? updatedQuestion
-        : question
-    )
-  );
+    setSelectedQuestion(
+      updatedQuestion
+    );
+  }
 
-  setSelectedQuestion(updatedQuestion);
 
-}
+  // =========================================================
+  // Loading
+  // =========================================================
 
   if (loading) {
     return <QuestionBankSkeleton />;
   }
 
+
+  // =========================================================
+  // Error
+  // =========================================================
+
   if (error) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-950">
+
         <p className="text-red-400">
           {error}
         </p>
+
       </main>
     );
   }
 
-    return (
+
+  // =========================================================
+  // UI
+  // =========================================================
+
+  return (
     <>
       <main className="min-h-screen bg-zinc-950">
+
         <div className="mx-auto max-w-7xl px-8 py-8">
 
           <QuestionBankHeader />
 
+
           {!selectedBank ? (
             <>
+              {/* =================================================
+                  Bank List
+              ================================================= */}
+
               <section className="mb-8">
 
                 <h2 className="text-3xl font-bold text-white">
@@ -315,6 +558,7 @@ export default function QuestionBank() {
                 </p>
 
               </section>
+
 
               <div className="grid gap-6">
 
@@ -334,23 +578,31 @@ export default function QuestionBank() {
 
                 ) : (
 
-                  banks.map((bank) => (
-
-                    <QuestionBankCard
-                      key={bank.id}
-                      bank={bank}
-                      onOpen={() => openBank(bank)}
-                    />
-
-                  ))
+                  banks.map(
+                    (bank) => (
+                      <QuestionBankCard
+                        key={bank.id}
+                        bank={bank}
+                        onOpen={() =>
+                          openBank(bank)
+                        }
+                      />
+                    )
+                  )
 
                 )}
 
               </div>
 
             </>
+
           ) : (
+
             <>
+              {/* =================================================
+                  Selected Bank
+              ================================================= */}
+
               <div className="mb-8 flex items-center justify-between">
 
                 <div>
@@ -375,12 +627,15 @@ export default function QuestionBank() {
 
                 </div>
 
+
                 <div className="flex gap-3">
 
                   {!selectedBank.active && (
 
                     <button
-                      onClick={handleMakeActive}
+                      onClick={
+                        handleMakeActive
+                      }
                       className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
                     >
                       Make Active
@@ -388,8 +643,11 @@ export default function QuestionBank() {
 
                   )}
 
+
                   <button
-                    onClick={handleDelete}
+                    onClick={
+                      handleDelete
+                    }
                     className="rounded-lg border border-red-500 px-5 py-2 text-sm font-medium text-red-400 transition hover:bg-red-500/10"
                   >
                     Delete
@@ -399,7 +657,15 @@ export default function QuestionBank() {
 
               </div>
 
-              <QuestionBankInfo metadata={selectedBank} />
+
+              <QuestionBankInfo
+                metadata={selectedBank}
+              />
+
+
+              {/* =================================================
+                  Filters
+              ================================================= */}
 
               <div className="mt-8">
 
@@ -408,53 +674,87 @@ export default function QuestionBank() {
                   <div className="flex flex-wrap gap-3">
 
                     <button
-                      onClick={() => setFilter("all")}
-                      className={filter === "all"
-                        ? "rounded-full bg-blue-600 px-4 py-2 text-white"
-                        : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"}
+                      onClick={() =>
+                        setFilter("all")
+                      }
+                      className={
+                        filter === "all"
+                          ? "rounded-full bg-blue-600 px-4 py-2 text-white"
+                          : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"
+                      }
                     >
                       All ({counts.all})
                     </button>
 
-                    <button
-                      onClick={() => setFilter("official")}
-                      className={filter === "official"
-                        ? "rounded-full bg-blue-600 px-4 py-2 text-white"
-                        : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"}
-                    >
-                      Official ({counts.official})
-                    </button>
 
                     <button
-                      onClick={() => setFilter("ai")}
-                      className={filter === "ai"
-                        ? "rounded-full bg-blue-600 px-4 py-2 text-white"
-                        : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"}
+                      onClick={() =>
+                        setFilter(
+                          "official"
+                        )
+                      }
+                      className={
+                        filter ===
+                        "official"
+                          ? "rounded-full bg-blue-600 px-4 py-2 text-white"
+                          : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"
+                      }
+                    >
+                      Official (
+                      {counts.official}
+                      )
+                    </button>
+
+
+                    <button
+                      onClick={() =>
+                        setFilter("ai")
+                      }
+                      className={
+                        filter === "ai"
+                          ? "rounded-full bg-blue-600 px-4 py-2 text-white"
+                          : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"
+                      }
                     >
                       AI ({counts.ai})
                     </button>
 
-                    <button
-                        onClick={() => setFilter("manual")}
-                        className={
-                            filter === "manual"
-                                ? "rounded-full bg-blue-600 px-4 py-2 text-white"
-                                : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"
-                        }
-                    >
-                        User Edit ({counts.manual})
-                    </button>
 
                     <button
-                      onClick={() => setFilter("missing")}
-                      className={filter === "missing"
-                        ? "rounded-full bg-blue-600 px-4 py-2 text-white"
-                        : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"}
+                      onClick={() =>
+                        setFilter("manual")
+                      }
+                      className={
+                        filter ===
+                        "manual"
+                          ? "rounded-full bg-blue-600 px-4 py-2 text-white"
+                          : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"
+                      }
                     >
-                      Missing ({counts.missing})
+                      User Edit (
+                      {counts.manual}
+                      )
+                    </button>
+
+
+                    <button
+                      onClick={() =>
+                        setFilter("missing")
+                      }
+                      className={
+                        filter ===
+                        "missing"
+                          ? "rounded-full bg-blue-600 px-4 py-2 text-white"
+                          : "rounded-full bg-zinc-800 px-4 py-2 text-zinc-300"
+                      }
+                    >
+                      Missing (
+                      {counts.missing}
+                      )
                     </button>
 
                   </div>
+
 
                   <QuestionSearch
                     value={search}
@@ -464,6 +764,11 @@ export default function QuestionBank() {
                 </div>
 
               </div>
+
+
+              {/* =================================================
+                  Questions
+              ================================================= */}
 
               <section className="mt-8 space-y-6">
 
@@ -483,42 +788,83 @@ export default function QuestionBank() {
 
                 ) : (
 
-                  filteredQuestions.map((question) => (
+                  filteredQuestions.map(
+                    (question) => (
 
-                    <QuestionCard
-                      key={question.id}
-                      question={question}
-                      onView={setSelectedQuestion}
-                    />
+                      <QuestionCard
+                        key={question.id}
+                        question={question}
+                        onView={
+                          setSelectedQuestion
+                        }
+                      />
 
-                  ))
+                    )
+                  )
 
                 )}
 
               </section>
+
             </>
           )}
 
         </div>
+
       </main>
 
-    <QuestionDetailsModal
-        open={selectedQuestion !== null}
-        question={selectedQuestion}
-        hasPrevious={hasPrevious}
-        hasNext={hasNext}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        onClose={() => setSelectedQuestion(null)}
-        onEditAnswer={setEditingQuestion}
-    />
 
-    <EditAnswerDialog
-    open={editingQuestion !== null}
-    question={editingQuestion}
-    onClose={() => setEditingQuestion(null)}
-    onSaved={handleQuestionUpdated}
-    />
+      {/* =======================================================
+          Question Details
+      ======================================================= */}
+
+      <QuestionDetailsModal
+        open={
+          selectedQuestion !== null
+        }
+        question={
+          selectedQuestion
+        }
+        hasPrevious={
+          hasPrevious
+        }
+        hasNext={
+          hasNext
+        }
+        onPrevious={
+          handlePrevious
+        }
+        onNext={
+          handleNext
+        }
+        onClose={() =>
+          setSelectedQuestion(null)
+        }
+        onEditAnswer={
+          setEditingQuestion
+        }
+      />
+
+
+      {/* =======================================================
+          Edit Answer
+      ======================================================= */}
+
+      <EditAnswerDialog
+        open={
+          editingQuestion !== null
+        }
+        question={
+          editingQuestion
+        }
+        onClose={() =>
+          setEditingQuestion(null)
+        }
+        onSaved={
+          handleQuestionUpdated
+        }
+      />
+
     </>
   );
 }
