@@ -31,8 +31,8 @@ service = ExamService()
 )
 @limiter.limit("30/minute")
 def generate_exam(
-    request_http: Request,
-    request: GenerateExamRequest,
+    request: Request,
+    body : GenerateExamRequest,
     current_user=Depends(get_current_user),
 ):
 
@@ -49,9 +49,9 @@ def generate_exam(
 
     return service.generate_exam(
     user_id=current_user["id"],
-    question_count=request.questionCount,
-    timed=request.timed,
-    duration_minutes=request.durationMinutes,
+    question_count=body.questionCount,
+    timed=body.timed,
+    duration_minutes=body.durationMinutes,
     )
 
 @router.get("/exam/current")
