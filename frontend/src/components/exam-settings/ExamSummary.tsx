@@ -1,13 +1,11 @@
 interface ExamSummaryProps {
   selectedQuestions: number;
-  totalQuestions: number;
   timed: boolean;
   duration: number;
 }
 
 export default function ExamSummary({
   selectedQuestions,
-  totalQuestions,
   timed,
   duration,
 }: ExamSummaryProps) {
