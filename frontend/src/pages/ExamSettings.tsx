@@ -309,9 +309,6 @@ export default function ExamSettings() {
           selectedQuestions={
             questionCount
           }
-          totalQuestions={
-            activeBank.questionCount
-          }
           timed={timed}
           duration={duration}
         />
